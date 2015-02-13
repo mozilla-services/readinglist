@@ -1,7 +1,9 @@
 from collections import defaultdict
 
 from readinglist import utils
-from readinglist.storage import StorageBase, exceptions, extract_record_set
+from readinglist.storage import (
+    MemoryBasedStorage, exceptions, extract_record_set
+)
 from readinglist.utils import classname
 
 
@@ -9,7 +11,7 @@ def tree():
     return defaultdict(tree)
 
 
-class Memory(StorageBase):
+class Memory(MemoryBasedStorage):
     def __init__(self, *args, **kwargs):
         super(Memory, self).__init__(*args, **kwargs)
         self.flush()
