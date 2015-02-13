@@ -1,6 +1,7 @@
 import json
 import redis
 import time
+from six.moves.urllib import parse as urlparse
 
 from readinglist.storage import (
     StorageBase, exceptions, extract_record_set
@@ -207,7 +208,7 @@ class Redis(StorageBase):
 
 def load_from_config(config):
     settings = config.registry.settings
-    host = settings.get('redis.host', 'localhost')
-    port = settings.get('redis.port', 6379)
-    db = settings.get('redis.db', 0)
-    return Redis(host=host, port=port, db=db)
+    uri = settings.get('readinglist.storage_url', '')
+    uri = urlparse(uri)
+    db = int(uri.path[1:]) if uri.path else 0
+    return Redis(host=uri.host, port=uri.port, db=db)
