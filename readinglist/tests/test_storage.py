@@ -4,7 +4,7 @@ import six
 import time
 
 from readinglist.storage import (
-    StorageBase, exceptions, memory, simpleredis
+    StorageBase, exceptions, memory, simpleredis, postgresql
 )
 from readinglist import utils
 
@@ -57,6 +57,7 @@ class BaseTestStorage(object):
 
     def setUp(self):
         super(BaseTestStorage, self).setUp()
+        self.storage.flush()
         self.record = {'foo': 'bar'}
 
     def tearDown(self):
@@ -576,3 +577,7 @@ class MemoryStorageTest(StorageTest, unittest.TestCase):
 
     def test_ping_returns_an_error_if_unavailable(self):
         pass
+
+
+class PostgreSQLStorageTest(StorageTest, unittest.TestCase):
+    backend = postgresql

@@ -44,8 +44,9 @@ class StorageBase(object):
 
         for field in unique_fields:
             value = record.get(field)
-            filters = [(field, value, COMPARISON.EQ),
-                       (resource.id_field, record_id, COMPARISON.NOT)]
+            filters = [(field, value, COMPARISON.EQ)]
+            if record_id:
+                filters += [(resource.id_field, record_id, COMPARISON.NOT)]
 
             if value is not None:
                 existing, count = self.get_all(resource, user_id,
@@ -114,13 +115,11 @@ def extract_record_set(resource, records, filters, sorting,
     """Take the list of records and handle filtering, sorting and pagination.
 
     """
-    if not pagination_rules:
-        pagination_rules = []
     filtered = list(apply_filters(records, filters or []))
     total_records = len(filtered)
 
     paginated = {}
-    for rule in pagination_rules:
+    for rule in pagination_rules or []:
         values = list(apply_filters(filtered, rule))
         paginated.update(dict(((x[resource.id_field], x) for x in values)))
 

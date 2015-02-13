@@ -13,12 +13,15 @@ between a set of devices owned by a same account.
     :target: http://readinglist.readthedocs.org/en/latest/
     :alt: Documentation Status
 
+
+
 API
 ===
 
 * `API Design proposal
   <https://github.com/mozilla-services/readinglist/wiki/API-Design-proposal>`_
 * `Online documentation <http://readinglist.readthedocs.org/en/latest/>`_
+
 
 
 Run locally
@@ -72,6 +75,18 @@ To restart it (Bug after configuration update)::
     brew services restart redis
 
 
+PostgreSQL Backend
+==================
+
+(*draft*)
+
+* 9.3+
+* apt-get install libpq-dev
+* pip install readinglist==postgresql
+
+::
+
+    readinglist.storage_backend = readinglist.storage.postgresql
 
 
 Run tests

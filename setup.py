@@ -11,15 +11,20 @@ REQUIREMENTS = [
     'cornice',
     'pyfxa',
     'pyramid_multiauth',
-    'redis',
+    'redis',  # Session backend
     'requests',
     'six',
     'waitress',
 ]
 
+POSTGRESQL_REQUIRES = [
+    'psycopg2>2.5',
+]
+
 DEPENDENCY_LINKS = [
     'https://github.com/mozilla/PyFxA/tarball/master#egg=PyFxA-0.0.3dev',
 ]
+
 ENTRY_POINTS = {
     'paste.app_factory': [
         'main = readinglist:main',
@@ -43,5 +48,8 @@ setup(name='readinglist',
       include_package_data=True,
       zip_safe=False,
       install_requires=REQUIREMENTS,
+      extras_require={
+        'postgresql': REQUIREMENTS + POSTGRESQL_REQUIRES,
+      },
       dependency_links=DEPENDENCY_LINKS,
       entry_points=ENTRY_POINTS)
