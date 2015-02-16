@@ -91,8 +91,8 @@ class PostgreSQL(StorageBase):
             self._conn.rollback()
             self.cursor.close()
             if not silent:
-                logger.exception(e)
                 logger.debug(self._escape(query, kwargs))
+                logger.exception(e)
             raise
 
         if commit:
@@ -169,7 +169,7 @@ class PostgreSQL(StorageBase):
 
         query = """
         INSERT INTO records (user_id, resource_name, data)
-        VALUES (%(user_id)s, %(resource_name)s, %(data)s)
+        VALUES (%(user_id)s, %(resource_name)s, %(data)s::json)
         RETURNING id, last_modified::BIGINT
         """
         resource_name = classname(resource)
@@ -220,12 +220,13 @@ class PostgreSQL(StorageBase):
         if create:
             query = """
             INSERT INTO records (id, user_id, resource_name, data)
-            VALUES (%(record_id)s, %(user_id)s, %(resource_name)s, %(data)s)
+            VALUES (%(record_id)s, %(user_id)s,
+                    %(resource_name)s, %(data)s::json)
             RETURNING last_modified::BIGINT
             """
         else:
             query = """
-            UPDATE records SET data=%(data)s
+            UPDATE records SET data=%(data)s::json
             WHERE id = %(record_id)s
             RETURNING last_modified::BIGINT
             """
@@ -267,7 +268,9 @@ class PostgreSQL(StorageBase):
         record = {}
         record[resource.modified_field] = inserted['last_modified']
         record[resource.id_field] = record_id
-        # XXX inserted['deleted'] = True
+
+        field, value = resource.deleted_mark
+        record[field] = value
         return record
 
     def get_all(self, resource, user_id, filters=None, sorting=None,
@@ -284,12 +287,16 @@ class PostgreSQL(StorageBase):
             SELECT COUNT(*) AS count
               FROM collection_filtered
         ),
+        fake_deleted AS (
+            SELECT %%(deleted_mark)s::json AS data
+        ),
         filtered_deleted AS (
-            SELECT id, last_modified::BIGINT, '{}'::json AS data
-              FROM deleted
+            SELECT id, last_modified::BIGINT, fake_deleted.data AS data
+              FROM deleted, fake_deleted
              WHERE user_id = %%(user_id)s
                AND resource_name = %%(resource_name)s
-             %(conditions_deleted)s
+               %(conditions_filter)s
+               %(deleted_limit)s
         ),
         all_records AS (
             SELECT * FROM filtered_deleted
@@ -308,7 +315,10 @@ class PostgreSQL(StorageBase):
           %(pagination_limit)s;
         """
         resource_name = classname(resource)
-        placeholders = dict(user_id=user_id, resource_name=resource_name)
+        deleted_mark = json.dumps(dict([resource.deleted_mark]))
+        placeholders = dict(user_id=user_id,
+                            resource_name=resource_name,
+                            deleted_mark=deleted_mark)
 
         safeholders = defaultdict(six.text_type)
 
@@ -316,6 +326,9 @@ class PostgreSQL(StorageBase):
             conditions = [self._format_condition(resource, f) for f in filters]
             and_conditions = ' AND '.join(conditions)
             safeholders['conditions_filter'] = 'AND %s' % and_conditions
+
+        if not include_deleted:
+            safeholders['deleted_limit'] = 'LIMIT 0'
 
         if sorting:
             sorts = [self._format_sort(resource, s) for s in sorting]
@@ -335,16 +348,6 @@ class PostgreSQL(StorageBase):
         if limit:
             safe = self._escape('LIMIT %s', (limit,))
             safeholders['pagination_limit'] = safe
-
-        if include_deleted:
-            last_modified_filters = [f for f in filters
-                                     if f[0] == resource.modified_field]
-            if last_modified_filters:
-                condition = self._format_condition(resource,
-                                                   last_modified_filters[0])
-                safeholders['conditions_deleted'] = 'WHERE %s' % condition
-        else:
-            safeholders['conditions_deleted'] = 'LIMIT 0'
 
         results = self._execute(query % safeholders, **placeholders)
 
@@ -377,14 +380,16 @@ class PostgreSQL(StorageBase):
         }
         operator = operators.setdefault(operator, operator)
 
-        is_base_field = field in (resource.id_field, resource.modified_field)
-        if not is_base_field:
-            field = self._escape("data->>%s", (field,))
-            # PostgreSQL compares JSON fields values as strings
-            value = '%s' % value
-
-        if field == resource.modified_field:
-            field = "%s::BIGINT" % field
+        if field == resource.id_field:
+            field = 'id'
+        elif field == resource.modified_field:
+            field = 'last_modified::BIGINT'
+        else:
+            # JSON operator ->> retrieves values as text.
+            # If field is missing, we default to 'null'.
+            field = self._escape("coalesce(data->>%s, '')", (field,))
+            # JSON-ify the native value (e.g. True -> 'true')
+            value = json.dumps(value).strip('"')
 
         safe = "%s %s %%s" % (field, operator)
         return self._escape(safe, (value,))
@@ -399,8 +404,11 @@ class PostgreSQL(StorageBase):
         field, direction = sort
         direction = 'ASC' if direction > 0 else 'DESC'
 
-        is_base_field = field in (resource.id_field, resource.modified_field)
-        if not is_base_field:
+        if field == resource.id_field:
+            field = 'id'
+        elif field == resource.modified_field:
+            field = 'last_modified'
+        else:
             field = self._escape("data->>%s", (field,))
 
         safe = "%s %s" % (field, direction)

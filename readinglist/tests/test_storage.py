@@ -573,3 +573,12 @@ class MemoryStorageTest(StorageTest, unittest.TestCase):
 
 class PostgresqlStorageTest(StorageTest, unittest.TestCase):
     backend = postgresql
+
+    def test_ping_returns_an_error_if_unavailable(self):
+        import psycopg2
+        with mock.patch.object(self.storage, '_execute',
+            side_effect=psycopg2.DatabaseError):
+            self.assertFalse(self.storage.ping())
+
+    def test_schema_is_not_recreated_from_scratch_if_already_exists(self):
+        pass
