@@ -43,6 +43,7 @@ class TestResource(object):
     id_field = "id"
     modified_field = "last_modified"
     deleted_mark = ("deleted", True)
+    mapping = mock.MagicMock()
 
 
 class BaseTestStorage(object):
@@ -54,15 +55,12 @@ class BaseTestStorage(object):
         self.storage = self.backend.load_from_config(empty_settings)
         self.resource = TestResource()
         self.user_id = '1234'
-
-    def setUp(self):
-        super(BaseTestStorage, self).setUp()
-        self.storage.flush()
         self.record = {'foo': 'bar'}
 
     def tearDown(self):
         super(BaseTestStorage, self).tearDown()
         self.storage.flush()
+        self.resource.mapping.reset_mock()
 
     def test_ping_returns_true_when_working(self):
         self.assertTrue(self.storage.ping())
@@ -263,12 +261,7 @@ class TimestampsTest(object):
 class FieldsUnicityTest(object):
     def setUp(self):
         super(FieldsUnicityTest, self).setUp()
-        self.resource.mapping = mock.MagicMock()
         self.resource.mapping.Options.unique_fields = ('phone',)
-
-    def tearDown(self):
-        super(FieldsUnicityTest, self).tearDown()
-        self.resource.mapping.reset_mock()
 
     def create_record(self, record=None, user_id=None):
         record = record or {'phone': '0033677'}
@@ -579,5 +572,5 @@ class MemoryStorageTest(StorageTest, unittest.TestCase):
         pass
 
 
-class PostgreSQLStorageTest(StorageTest, unittest.TestCase):
+class PostgresqlStorageTest(StorageTest, unittest.TestCase):
     backend = postgresql
