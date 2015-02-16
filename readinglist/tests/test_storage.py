@@ -233,7 +233,6 @@ class TimestampsTest(object):
     def test_the_timestamp_are_based_on_real_time_milliseconds(self):
         before = utils.msec_time()
         time.sleep(0.001)  # 1 msec
-        print 'create'
         record = self.storage.create(self.resource, self.user_id, {})
         now = record['last_modified']
         time.sleep(0.001)  # 1 msec

@@ -1,4 +1,5 @@
 import json
+import os
 from collections import defaultdict
 
 import psycopg2
@@ -15,38 +16,92 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 
+class DBResults(object):
+    """Wrapper around psycopg cursor objects.
+
+    :note:
+        Main idea comes from the queries library, by Gavin M. Roy.
+        https://pypi.python.org/pypi/queries, released under BSD License.
+    """
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    def __iter__(self):
+        """Iterate through the result set
+
+        :rtype: mixed
+        """
+        if self.cursor.rowcount > 0:
+            self.cursor.scroll(0, 'absolute')  # rewind
+            for row in self.cursor:
+                yield row
+
+        self.cursor.close()
+        raise StopIteration
+
+    def __getitem__(self, item):
+        """Fetch an individual row from the result set
+
+        :rtype: mixed
+        :raises: IndexError
+        """
+        try:
+            self.cursor.scroll(item, 'absolute')
+        except psycopg2.ProgrammingError:
+            raise IndexError('No such row')
+        else:
+            return self.cursor.fetchone()
+
+    def __len__(self):
+        """Return the number of rows that were returned from the query
+
+        :rtype: int
+        """
+        return self.cursor.rowcount if self.cursor.rowcount >= 0 else 0
+
+
 class PostgreSQL(StorageBase):
 
     def __init__(self, *args, **kwargs):
         super(PostgreSQL, self).__init__(*args, **kwargs)
         self._conn = psycopg2.connect(**kwargs)
+        self._cursor = None
         self.init_schema()
 
-    def _execute(self, query, placeholders=tuple(), fetch=True, commit=False, silent=False):
+    @property
+    def cursor(self):
+        if self._cursor is None or self._cursor.closed:
+            self._cursor = self._get_cursor()
+        return self._cursor
 
+    def _get_cursor(self):
         options = dict(cursor_factory=psycopg2.extras.DictCursor)
-        cursor = self._conn.cursor(**options)
+        return self._conn.cursor(**options)
 
+    def _escape(self, query, placeholders):
+        return self.cursor.mogrify(query, placeholders)
+
+    def _execute(self, query, commit=True, silent=False, **kwargs):
+        """Run the specified query, commit by default and return the
+        result set.
+        """
         try:
-            cursor.execute(query, placeholders)
+            self.cursor.execute(query, kwargs)
         except psycopg2.Error as e:
             self._conn.rollback()
+            self.cursor.close()
             if not silent:
                 logger.exception(e)
-                logger.debug(cursor.mogrify(query, placeholders))
+                logger.debug(self._escape(query, kwargs))
             raise
 
-        resultset = None
-        if fetch:
-            # XXX : use server side cursers instead
-            resultset = cursor.fetchall()
         if commit:
             self._conn.commit()
-        cursor.close()
-        return resultset
+
+        return DBResults(self.cursor)
 
     def init_schema(self):
-        """Create PostgreSQL tables.
+        """Create PostgreSQL tables, only if not exists.
 
         :note:
             Relies on JSON fields, available in recent versions of PostgreSQL.
@@ -54,7 +109,7 @@ class PostgreSQL(StorageBase):
         # Since indices cannot be created with IF NOT EXISTS, inspect:
         try:
             inspect_tables = "SELECT * FROM records LIMIT 0;"
-            self._execute(inspect_tables, fetch=False, silent=True)
+            self._execute(inspect_tables, silent=True)
             exists = True
         except psycopg2.Error:
             exists = False
@@ -63,67 +118,31 @@ class PostgreSQL(StorageBase):
             logger.debug('Detected PostgreSQL storage tables')
             return
 
+        # Make sure database is UTF-8
         query = """
-        --
-        -- Actual records
-        --
-        CREATE TABLE IF NOT EXISTS records (
-            id SERIAL PRIMARY KEY,
-            user_id VARCHAR(256) NOT NULL,
-            resource_name  VARCHAR(256) NOT NULL,
-            last_modified TIMESTAMP NOT NULL DEFAULT localtimestamp,
-            data JSON NOT NULL DEFAULT '{}',
-            UNIQUE (user_id, resource_name, last_modified)
-        );
-        CREATE INDEX idx_records_user_id ON records(user_id);
-        CREATE INDEX idx_records_resource_name ON records(resource_name);
-        CREATE INDEX idx_records_last_modified ON records(last_modified);
-
-        --
-        -- Deleted records
-        --
-        CREATE TABLE IF NOT EXISTS deleted (
-            id INT4,
-            user_id VARCHAR(256) NOT NULL,
-            resource_name  VARCHAR(256) NOT NULL,
-            last_modified TIMESTAMP NOT NULL,
-            UNIQUE (user_id, resource_name, last_modified)
-        );
-        CREATE UNIQUE INDEX idx_deleted_id ON deleted(id);
-        CREATE INDEX idx_deleted_user_id ON deleted(user_id);
-        CREATE INDEX idx_deleted_resource_name ON deleted(resource_name);
-        CREATE INDEX idx_deleted_last_modified ON deleted(last_modified);
-
-        --
-        -- Metadata table
-        --
-        CREATE TABLE IF NOT EXISTS metadata (
-            name VARCHAR(128) NOT NULL,
-            value VARCHAR(512) NOT NULL
-        );
-        INSERT INTO metadata (name, value) VALUES ('created_at', NOW()::TEXT);
-
-        --
-        -- Helpers
-        --
-        CREATE OR REPLACE FUNCTION as_epoch(ts TIMESTAMP) RETURNS BIGINT AS $$
-        BEGIN
-            RETURN (EXTRACT(EPOCH FROM ts) * 1000)::BIGINT;
-        END;
-        $$ LANGUAGE plpgsql;
-
-        CREATE CAST (TIMESTAMP AS BIGINT)
-           WITH FUNCTION as_epoch(TIMESTAMP) AS ASSIGNMENT;
+        SELECT pg_encoding_to_char(encoding) AS encoding
+          FROM pg_database
+         WHERE datname =  current_database();
         """
-        self._execute(query, fetch=False)
+        result = self._execute(query)
+        encoding = result[0]['encoding'].lower()
+        assert encoding == 'utf8', 'Unexpected database encoding %s' % encoding
+
+        # Create schema
+        here = os.path.abspath(os.path.dirname(__file__))
+        schema = open(os.path.join(here, 'schema.sql')).read()
+        self._execute(schema)
         logger.info('Created PostgreSQL storage tables')
 
     def flush(self):
+        """Delete records from tables without destroying schema. Mainly used
+        in tests suites.
+        """
         query = """
         DELETE FROM deleted;
         DELETE FROM records;
         """
-        self._execute(query, fetch=False, commit=True)
+        self._execute(query)
         logger.debug('Flushed PostgreSQL storage tables')
 
     def ping(self):
@@ -135,27 +154,13 @@ class PostgreSQL(StorageBase):
 
     def collection_timestamp(self, resource, user_id):
         query = """
-        WITH max_records AS (
-            SELECT MAX(last_modified) AS max
-              FROM records
-             WHERE user_id = %(user_id)s
-               AND resource_name = %(resource_name)s
-        ),
-        max_deleted AS (
-            SELECT MAX(last_modified) AS max
-              FROM records
-             WHERE user_id = %(user_id)s
-               AND resource_name = %(resource_name)s
-        )
-        SELECT GREATEST(max_records.max, max_deleted.max)::BIGINT AS max
-        FROM max_records, max_deleted
-        UNION ALL
-        SELECT localtimestamp::BIGINT AS max;
+        SELECT resource_timestamp(%(user_id)s, %(resource_name)s)::BIGINT
+            AS timestamp;
         """
         resource_name = classname(resource)
         placeholders = dict(user_id=user_id, resource_name=resource_name)
-        latests = self._execute(query, placeholders=placeholders)
-        return latests[0]['max'] or latests[1]['max']
+        result = self._execute(query, **placeholders)
+        return result[0]['timestamp']
 
     def create(self, resource, user_id, record):
         # This will start transaction
@@ -171,7 +176,7 @@ class PostgreSQL(StorageBase):
         placeholders = dict(user_id=user_id,
                             resource_name=resource_name,
                             data=json.dumps(record))
-        inserted = self._execute(query, placeholders=placeholders, commit=True)
+        inserted = self._execute(query, **placeholders)
         inserted = inserted[0]
 
         record = record.copy()
@@ -186,7 +191,7 @@ class PostgreSQL(StorageBase):
          WHERE id = %(record_id)s
         """
         placeholders = dict(record_id=record_id)
-        results = self._execute(query, placeholders=placeholders)
+        results = self._execute(query, **placeholders)
         try:
             result = results[0]
         except IndexError:
@@ -220,7 +225,7 @@ class PostgreSQL(StorageBase):
             """
         else:
             query = """
-            UPDATE records SET data=%(data)s, last_modified=localtimestamp
+            UPDATE records SET data=%(data)s
             WHERE id = %(record_id)s
             RETURNING last_modified::BIGINT
             """
@@ -229,7 +234,7 @@ class PostgreSQL(StorageBase):
                             user_id=user_id,
                             resource_name=resource_name,
                             data=json.dumps(record))
-        results = self._execute(query, placeholders=placeholders, commit=True)
+        results = self._execute(query, **placeholders)
 
         result = results[0]
         record[resource.modified_field] = result['last_modified']
@@ -243,20 +248,20 @@ class PostgreSQL(StorageBase):
         RETURNING id
         """
         placeholders = dict(record_id=record_id)
-        deleted = self._execute(query, placeholders=placeholders, commit=False)
-        if not deleted:
+        deleted = self._execute(query, commit=False, **placeholders)
+        if len(deleted) == 0:
             raise exceptions.RecordNotFoundError(record_id)
 
         query = """
-        INSERT INTO deleted (id, user_id, resource_name, last_modified)
-        VALUES (%(record_id)s, %(user_id)s, %(resource_name)s, localtimestamp)
+        INSERT INTO deleted (id, user_id, resource_name)
+        VALUES (%(record_id)s, %(user_id)s, %(resource_name)s)
         RETURNING last_modified::BIGINT
         """
         resource_name = classname(resource)
         placeholders = dict(record_id=record_id,
                             user_id=user_id,
                             resource_name=resource_name)
-        inserted = self._execute(query, placeholders=placeholders, commit=True)
+        inserted = self._execute(query, **placeholders)
 
         inserted = inserted[0]
         record = {}
@@ -288,7 +293,7 @@ class PostgreSQL(StorageBase):
         ),
         all_records AS (
             SELECT * FROM filtered_deleted
-            UNION ALL
+             UNION ALL
             SELECT * FROM collection_filtered
         ),
         paginated_records AS (
@@ -328,9 +333,8 @@ class PostgreSQL(StorageBase):
             safeholders['pagination_rules'] = 'WHERE %s' % or_rules
 
         if limit:
-            cursor = self._conn.cursor()
-            safe = cursor.mogrify('LIMIT %s', (limit,))
-            safeholders['pagination_limit'] =  safe
+            safe = self._escape('LIMIT %s', (limit,))
+            safeholders['pagination_limit'] = safe
 
         if include_deleted:
             last_modified_filters = [f for f in filters
@@ -342,11 +346,12 @@ class PostgreSQL(StorageBase):
         else:
             safeholders['conditions_deleted'] = 'LIMIT 0'
 
-        results = self._execute(query % safeholders, placeholders)
-        if not results:
-            return [], 0
+        results = self._execute(query % safeholders, **placeholders)
 
-        count_total = results[0]['count_total']
+        try:
+            count_total = results[0]['count_total']
+        except IndexError:
+            return [], 0
 
         records = []
         for result in results:
@@ -362,7 +367,7 @@ class PostgreSQL(StorageBase):
 
         :note:
 
-            Field name and value are escaped using cursor.mogrify()
+            Field name and value are escaped as they come from HTTP API.
         """
         field, value, operator = filter_
 
@@ -372,10 +377,9 @@ class PostgreSQL(StorageBase):
         }
         operator = operators.setdefault(operator, operator)
 
-        cursor = self._conn.cursor()
         is_base_field = field in (resource.id_field, resource.modified_field)
         if not is_base_field:
-            field = cursor.mogrify("data->>%s", (field,))
+            field = self._escape("data->>%s", (field,))
             # PostgreSQL compares JSON fields values as strings
             value = '%s' % value
 
@@ -383,22 +387,21 @@ class PostgreSQL(StorageBase):
             field = "%s::BIGINT" % field
 
         safe = "%s %s %%s" % (field, operator)
-        return cursor.mogrify(safe, (value,))
+        return self._escape(safe, (value,))
 
     def _format_sort(self, resource, sort):
         """Format the sort in SQL instruction.
 
         :note:
 
-            Field name is escaped using cursor.mogrify()
+            Field name is escaped as it comes from HTTP API.
         """
         field, direction = sort
         direction = 'ASC' if direction > 0 else 'DESC'
 
         is_base_field = field in (resource.id_field, resource.modified_field)
         if not is_base_field:
-            cursor = self._conn.cursor()
-            field = cursor.mogrify("data->>%s", (field,))
+            field = self._escape("data->>%s", (field,))
 
         safe = "%s %s" % (field, direction)
         return safe
