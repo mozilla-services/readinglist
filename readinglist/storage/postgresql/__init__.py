@@ -5,6 +5,7 @@ from collections import defaultdict
 import psycopg2
 import psycopg2.extras
 import six
+from psycopg2.pool import ThreadedConnectionPool
 from six.moves.urllib import parse as urlparse
 
 from readinglist import logger
@@ -16,92 +17,74 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 
-class DBResults(object):
-    """Wrapper around psycopg cursor objects.
-
-    :note:
-        Main idea comes from the queries library, by Gavin M. Roy.
-        https://pypi.python.org/pypi/queries, released under BSD License.
+class DBClient(object):
+    """Wrapper to obtain and release connections from a pool
+    using python context managers.
     """
-    def __init__(self, cursor):
-        self.cursor = cursor
+    def __init__(self, pool, pid=None):
+        self._conn_pool = pool
+        self._pid = pid or id(self)
+        self._conn = None
+        self._cursor = None
 
-    def __iter__(self):
-        """Iterate through the result set
-
-        :rtype: mixed
+    def __enter__(self):
+        """Obtain a connection and a cursor.
+        :note:
+            This starts a transaction.
         """
-        if self.cursor.rowcount > 0:
-            self.cursor.scroll(0, 'absolute')  # rewind
-            for row in self.cursor:
-                yield row
+        self._conn = self._conn_pool.getconn(key=self._pid)
+        options = dict(cursor_factory=psycopg2.extras.DictCursor)
+        self._cursor = self._conn.cursor(**options)
+        return self._cursor
 
-        self.cursor.close()
-        raise StopIteration
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._cleanup(error=exc_val)
 
-    def __getitem__(self, item):
-        """Fetch an individual row from the result set
+    def __del__(self):
+        self._cleanup()
 
-        :rtype: mixed
-        :raises: IndexError
+    def _cleanup(self, error=None):
+        """Clean-up allocated objects during context.
+        * Cursor is closed
+        * Transaction is terminated (or rolledback if error)
+        * Connection is released
         """
-        try:
-            self.cursor.scroll(item, 'absolute')
-        except psycopg2.ProgrammingError:
-            raise IndexError('No such row')
-        else:
-            return self.cursor.fetchone()
-
-    def __len__(self):
-        """Return the number of rows that were returned from the query
-
-        :rtype: int
-        """
-        return self.cursor.rowcount if self.cursor.rowcount >= 0 else 0
+        if error:
+            logger.exception(error)
+        if self._cursor:
+            if error:
+                logger.debug(self._cursor.query)
+            self._cursor.close()
+            self._cursor = None
+        if self._conn:
+            if error:
+                self._conn.rollback()
+            self._conn_pool.putconn(self._conn, key=self._pid)
+            self._conn = None
 
 
 class PostgreSQL(StorageBase):
-
     def __init__(self, *args, **kwargs):
         super(PostgreSQL, self).__init__(*args, **kwargs)
-        self._conn = psycopg2.connect(**kwargs)
-        self._cursor = None
-        self.init_schema()
-
-    @property
-    def cursor(self):
-        if self._cursor is None or self._cursor.closed:
-            self._cursor = self._get_cursor()
-        return self._cursor
-
-    def _get_cursor(self):
-        options = dict(cursor_factory=psycopg2.extras.DictCursor)
-        return self._conn.cursor(**options)
+        self._max_fetch_size = kwargs.pop('max_fetch_size')
+        self._conn_pool = ThreadedConnectionPool(**kwargs)
+        self._init_schema()
 
     def _escape(self, query, placeholders):
-        return self.cursor.mogrify(query, placeholders)
+        with DBClient(self._conn_pool, pid=id(self)) as cursor:
+            return cursor.mogrify(query, placeholders)
 
-    def _execute(self, query, commit=True, silent=False, **kwargs):
-        """Run the specified query, commit by default and return the
-        result set.
+    def _execute(self, query, fetch=1, **kwargs):
+        """Run the specified query, commit it and return the result set.
         """
-        try:
-            logger.debug(self._escape(query, kwargs))
-            self.cursor.execute(query, kwargs)
-        except psycopg2.Error as e:
-            self._conn.rollback()
-            self.cursor.close()
-            if not silent:
-                logger.debug(self._escape(query, kwargs))
-                logger.exception(e)
-            raise
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(query, kwargs)
+            cursor.connection.commit()
+            if fetch and cursor.rowcount > 0:
+                return cursor.fetchmany(fetch)
+        return []
 
-        if commit:
-            self._conn.commit()
-
-        return DBResults(self.cursor)
-
-    def init_schema(self):
+    def _init_schema(self):
         """Create PostgreSQL tables, only if not exists.
 
         :note:
@@ -110,7 +93,7 @@ class PostgreSQL(StorageBase):
         # Since indices cannot be created with IF NOT EXISTS, inspect:
         try:
             inspect_tables = "SELECT * FROM records LIMIT 0;"
-            self._execute(inspect_tables, silent=True)
+            self._execute(inspect_tables)
             exists = True
         except psycopg2.Error:
             exists = False
@@ -132,7 +115,7 @@ class PostgreSQL(StorageBase):
         # Create schema
         here = os.path.abspath(os.path.dirname(__file__))
         schema = open(os.path.join(here, 'schema.sql')).read()
-        self._execute(schema)
+        self._execute(schema, fetch=None)
         logger.info('Created PostgreSQL storage tables')
 
     def flush(self):
@@ -143,7 +126,7 @@ class PostgreSQL(StorageBase):
         DELETE FROM deleted;
         DELETE FROM records;
         """
-        self._execute(query)
+        self._execute(query, fetch=None)
         logger.debug('Flushed PostgreSQL storage tables')
 
     def ping(self):
@@ -347,10 +330,12 @@ class PostgreSQL(StorageBase):
             safeholders['pagination_rules'] = 'WHERE %s' % or_rules
 
         if limit:
-            safe = self._escape('LIMIT %s', (limit,))
-            safeholders['pagination_limit'] = safe
+            assert isinstance(limit, six.integer_types)  # validated in view
+            safeholders['pagination_limit'] = 'LIMIT %s' % limit
 
-        results = self._execute(query % safeholders, **placeholders)
+        results = self._execute(query % safeholders,
+                                fetch=self._max_fetch_size,
+                                **placeholders)
 
         try:
             count_total = results[0]['count_total']
@@ -420,8 +405,16 @@ def load_from_config(config):
     settings = config.registry.settings
     uri = settings.get('storage.url', '')
     uri = urlparse.urlparse(uri)
+
+    pool_minconn = settings.get('postgres.pool_minconn', 2)
+    pool_maxconn = settings.get('postgres.pool_maxconn', 5)
+    max_fetch_size = settings.get('postgres.max_fetch_size', 10000)
+
     return PostgreSQL(host=uri.hostname or 'localhost',
                       port=uri.port or 5432,
                       user=uri.username or 'postgres',
                       password=uri.password or 'postgres',
-                      database=uri.path[1:] if uri.path else 'postgres')
+                      database=uri.path[1:] if uri.path else 'postgres',
+                      minconn=pool_minconn,
+                      maxconn=pool_maxconn,
+                      max_fetch_size=max_fetch_size)
