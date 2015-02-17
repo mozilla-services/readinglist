@@ -21,9 +21,8 @@ class DBClient(object):
     """Wrapper to obtain and release connections from a pool
     using python context managers.
     """
-    def __init__(self, pool, pid=None):
+    def __init__(self, pool):
         self._conn_pool = pool
-        self._pid = pid or id(self)
         self._conn = None
         self._cursor = None
 
@@ -32,7 +31,7 @@ class DBClient(object):
         :note:
             This starts a transaction.
         """
-        self._conn = self._conn_pool.getconn(key=self._pid)
+        self._conn = self._conn_pool.getconn()
         options = dict(cursor_factory=psycopg2.extras.DictCursor)
         self._cursor = self._conn.cursor(**options)
         return self._cursor
@@ -49,7 +48,7 @@ class DBClient(object):
         * Transaction is terminated (or rolledback if error)
         * Connection is released
         """
-        if error:
+        if isinstance(error, psycopg2.Error):
             logger.exception(error)
         if self._cursor:
             if error:
@@ -57,9 +56,11 @@ class DBClient(object):
             self._cursor.close()
             self._cursor = None
         if self._conn:
-            if error:
-                self._conn.rollback()
-            self._conn_pool.putconn(self._conn, key=self._pid)
+            if not self._conn.closed:
+                if error:
+                    self._conn.rollback()
+                self._conn.reset()
+                self._conn_pool.putconn(self._conn)
             self._conn = None
 
 
@@ -73,7 +74,7 @@ class PostgreSQL(StorageBase):
         self._init_schema()
 
     def _escape(self, query, placeholders):
-        with DBClient(self._conn_pool, pid=id(self)) as cursor:
+        with DBClient(self._conn_pool) as cursor:
             return cursor.mogrify(query, placeholders)
 
     def _init_schema(self):
@@ -407,8 +408,8 @@ def load_from_config(config):
     uri = settings.get('storage.url', '')
     uri = urlparse.urlparse(uri)
 
-    pool_minconn = settings.get('postgres.pool_minconn', 2)
-    pool_maxconn = settings.get('postgres.pool_maxconn', 5)
+    pool_minconn = settings.get('postgres.pool_minconn', 4)
+    pool_maxconn = settings.get('postgres.pool_maxconn', 10)
     max_fetch_size = settings.get('postgres.max_fetch_size', 10000)
 
     return PostgreSQL(host=uri.hostname or 'localhost',
@@ -416,6 +417,6 @@ def load_from_config(config):
                       user=uri.username or 'postgres',
                       password=uri.password or 'postgres',
                       database=uri.path[1:] if uri.path else 'postgres',
-                      minconn=pool_minconn,
-                      maxconn=pool_maxconn,
-                      max_fetch_size=max_fetch_size)
+                      minconn=int(pool_minconn),
+                      maxconn=int(pool_maxconn),
+                      max_fetch_size=int(max_fetch_size))

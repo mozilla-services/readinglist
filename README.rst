@@ -91,6 +91,16 @@ In `conf/readinglist.ini`::
     readinglist.storage_url = user:pass@db.server.lan:5432/dbname
 
 
+*(Optional*) Memory usage parameters::
+
+    # Number of connections * postgres work_mem
+    pool_minconn = 4
+    pool_maxconn = 10
+    # Max number of records * number of web workers
+    max_fetch_size = 10000
+
+
+
 Install Redis
 =============
 
