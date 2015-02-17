@@ -64,6 +64,8 @@ class DBClient(object):
 
 
 class PostgreSQL(StorageBase):
+    """Storage backend for PostgreSQL.
+    """
     def __init__(self, *args, **kwargs):
         super(PostgreSQL, self).__init__(*args, **kwargs)
         self._max_fetch_size = kwargs.pop('max_fetch_size')
@@ -74,16 +76,6 @@ class PostgreSQL(StorageBase):
         with DBClient(self._conn_pool, pid=id(self)) as cursor:
             return cursor.mogrify(query, placeholders)
 
-    def _execute(self, query, fetch=1, **kwargs):
-        """Run the specified query, commit it and return the result set.
-        """
-        with DBClient(self._conn_pool) as cursor:
-            cursor.execute(query, kwargs)
-            cursor.connection.commit()
-            if fetch and cursor.rowcount > 0:
-                return cursor.fetchmany(fetch)
-        return []
-
     def _init_schema(self):
         """Create PostgreSQL tables, only if not exists.
 
@@ -93,7 +85,8 @@ class PostgreSQL(StorageBase):
         # Since indices cannot be created with IF NOT EXISTS, inspect:
         try:
             inspect_tables = "SELECT * FROM records LIMIT 0;"
-            self._execute(inspect_tables)
+            with DBClient(self._conn_pool) as cursor:
+                cursor.execute(inspect_tables)
             exists = True
         except psycopg2.Error:
             exists = False
@@ -108,14 +101,17 @@ class PostgreSQL(StorageBase):
           FROM pg_database
          WHERE datname =  current_database();
         """
-        result = self._execute(query)
-        encoding = result[0]['encoding'].lower()
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(query)
+            result = cursor.fetchone()
+        encoding = result['encoding'].lower()
         assert encoding == 'utf8', 'Unexpected database encoding %s' % encoding
 
         # Create schema
         here = os.path.abspath(os.path.dirname(__file__))
         schema = open(os.path.join(here, 'schema.sql')).read()
-        self._execute(schema, fetch=None)
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(schema)
         logger.info('Created PostgreSQL storage tables')
 
     def flush(self):
@@ -126,12 +122,15 @@ class PostgreSQL(StorageBase):
         DELETE FROM deleted;
         DELETE FROM records;
         """
-        self._execute(query, fetch=None)
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(query)
+            cursor.connection.commit()
         logger.debug('Flushed PostgreSQL storage tables')
 
     def ping(self):
         try:
-            self._execute("SELECT now();")
+            with DBClient(self._conn_pool) as cursor:
+                cursor.execute("SELECT now();")
             return True
         except psycopg2.Error:
             return False
@@ -143,14 +142,12 @@ class PostgreSQL(StorageBase):
         """
         resource_name = classname(resource)
         placeholders = dict(user_id=user_id, resource_name=resource_name)
-        result = self._execute(query, **placeholders)
-        return result[0]['timestamp']
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(query, placeholders)
+            result = cursor.fetchone()
+        return result['timestamp']
 
     def create(self, resource, user_id, record):
-        # This will start transaction
-        self.check_unicity(resource, user_id, record)
-        # XXX - can raise unicityerror: ok ?
-
         query = """
         INSERT INTO records (user_id, resource_name, data)
         VALUES (%(user_id)s, %(resource_name)s, %(data)s::json)
@@ -160,8 +157,13 @@ class PostgreSQL(StorageBase):
         placeholders = dict(user_id=user_id,
                             resource_name=resource_name,
                             data=json.dumps(record))
-        inserted = self._execute(query, **placeholders)
-        inserted = inserted[0]
+
+        with DBClient(self._conn_pool) as cursor:
+            self.check_unicity(resource, user_id, record)
+
+            cursor.execute(query, placeholders)
+            cursor.connection.commit()
+            inserted = cursor.fetchone()
 
         record = record.copy()
         record[resource.id_field] = inserted['id']
@@ -175,11 +177,12 @@ class PostgreSQL(StorageBase):
          WHERE id = %(record_id)s
         """
         placeholders = dict(record_id=record_id)
-        results = self._execute(query, **placeholders)
-        try:
-            result = results[0]
-        except IndexError:
-            raise exceptions.RecordNotFoundError(record_id)
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(query, placeholders)
+            if cursor.rowcount == 0:
+                raise exceptions.RecordNotFoundError(record_id)
+            else:
+                result = cursor.fetchone()
 
         record = result['data']
         record[resource.id_field] = record_id
@@ -187,68 +190,66 @@ class PostgreSQL(StorageBase):
         return record
 
     def update(self, resource, user_id, record_id, record):
-        record = record.copy()
-        record[resource.id_field] = record_id
-
-        # Create or update ?
-        try:
-            # This will start a transaction
-            self.get(resource, user_id, record_id)
-            create = False
-        except exceptions.RecordNotFoundError:
-            create = True
-
-        self.check_unicity(resource, user_id, record)
-        # XXX - can raise: abort!
-
-        if create:
-            query = """
-            INSERT INTO records (id, user_id, resource_name, data)
-            VALUES (%(record_id)s, %(user_id)s,
-                    %(resource_name)s, %(data)s::json)
-            RETURNING last_modified::BIGINT
-            """
-        else:
-            query = """
-            UPDATE records SET data=%(data)s::json
-            WHERE id = %(record_id)s
-            RETURNING last_modified::BIGINT
-            """
-        resource_name = classname(resource)
-        placeholders = dict(record_id=record_id,
-                            user_id=user_id,
-                            resource_name=resource_name,
-                            data=json.dumps(record))
-        results = self._execute(query, **placeholders)
-
-        result = results[0]
-        record[resource.modified_field] = result['last_modified']
-        return record
-
-    def delete(self, resource, user_id, record_id):
-        query = """
-        DELETE
-        FROM records
-        WHERE id = %(record_id)s
-        RETURNING id
+        query_create = """
+        INSERT INTO records (id, user_id, resource_name, data)
+        VALUES (%(record_id)s, %(user_id)s,
+                %(resource_name)s, %(data)s::json)
+        RETURNING last_modified::BIGINT
         """
-        placeholders = dict(record_id=record_id)
-        deleted = self._execute(query, commit=False, **placeholders)
-        if len(deleted) == 0:
-            raise exceptions.RecordNotFoundError(record_id)
 
-        query = """
-        INSERT INTO deleted (id, user_id, resource_name)
-        VALUES (%(record_id)s, %(user_id)s, %(resource_name)s)
+        query_update = """
+        UPDATE records SET data=%(data)s::json
+        WHERE id = %(record_id)s
         RETURNING last_modified::BIGINT
         """
         resource_name = classname(resource)
         placeholders = dict(record_id=record_id,
                             user_id=user_id,
-                            resource_name=resource_name)
-        inserted = self._execute(query, **placeholders)
+                            resource_name=resource_name,
+                            data=json.dumps(record))
 
-        inserted = inserted[0]
+        with DBClient(self._conn_pool) as cursor:
+            self.check_unicity(resource, user_id, record)
+
+            # Create or update ?
+            query = "SELECT id FROM records WHERE id = %s;"
+            cursor.execute(query, (record_id,))
+            query = query_update if cursor.rowcount > 0 else query_create
+
+            cursor.execute(query, placeholders)
+            cursor.connection.commit()
+            result = cursor.fetchone()
+
+        record = record.copy()
+        record[resource.id_field] = record_id
+        record[resource.modified_field] = result['last_modified']
+        return record
+
+    def delete(self, resource, user_id, record_id):
+        resource_name = classname(resource)
+        placeholders = dict(record_id=record_id,
+                            user_id=user_id,
+                            resource_name=resource_name)
+
+        with DBClient(self._conn_pool) as cursor:
+            query = """
+            DELETE
+            FROM records
+            WHERE id = %(record_id)s;
+            """
+            cursor.execute(query, placeholders)
+            if cursor.rowcount == 0:
+                raise exceptions.RecordNotFoundError(record_id)
+
+            query = """
+            INSERT INTO deleted (id, user_id, resource_name)
+            VALUES (%(record_id)s, %(user_id)s, %(resource_name)s)
+            RETURNING last_modified::BIGINT
+            """
+            cursor.execute(query, placeholders)
+            cursor.connection.commit()
+            inserted = cursor.fetchone()
+
         record = {}
         record[resource.modified_field] = inserted['last_modified']
         record[resource.id_field] = record_id
@@ -333,9 +334,9 @@ class PostgreSQL(StorageBase):
             assert isinstance(limit, six.integer_types)  # validated in view
             safeholders['pagination_limit'] = 'LIMIT %s' % limit
 
-        results = self._execute(query % safeholders,
-                                fetch=self._max_fetch_size,
-                                **placeholders)
+        with DBClient(self._conn_pool) as cursor:
+            cursor.execute(query % safeholders, placeholders)
+            results = cursor.fetchmany(self._max_fetch_size)
 
         try:
             count_total = results[0]['count_total']
