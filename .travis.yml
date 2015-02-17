@@ -2,6 +2,8 @@ language: python
 python: 2.7
 sudo: false
 services: redis-server
+addons:
+  postgresql: "9.3"
 env:
     - TOX_ENV=py26
     - TOX_ENV=py27
@@ -9,6 +11,8 @@ env:
     - TOX_ENV=flake8
     - TOX_ENV=docs
     - ACTION=loadtest
+before_script:
+    - psql -c 'CREATE DATABASE postgres;' -U postgres
 install:
     - if [[ $ACTION != loadtest ]]; then pip install tox; fi
 script:

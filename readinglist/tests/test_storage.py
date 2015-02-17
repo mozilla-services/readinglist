@@ -586,7 +586,7 @@ class PostgresqlStorageTest(StorageTest, unittest.TestCase):
     def test_ping_returns_an_error_if_unavailable(self):
         import psycopg2
         with mock.patch('readinglist.storage.postgresql.DBClient.__enter__',
-            side_effect=psycopg2.DatabaseError):
+                        side_effect=psycopg2.DatabaseError):
             self.assertFalse(self.storage.ping())
 
     def test_schema_is_not_recreated_from_scratch_if_already_exists(self):
