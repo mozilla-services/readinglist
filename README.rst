@@ -27,9 +27,9 @@ API
 Run locally
 ===========
 
-By default, readinglist persists its records inside a `Redis
-<http://redis.io/>`_  database, so it has to be installed first (see the
-"Install Redis" section below for more on this).
+Reading list persists its sessions and its records inside a `Redis <http://redis.io/>`_
+database, so it has to be installed first (see the "Install Redis" section below for
+more on this).
 
 Once Redis is installed:
 
@@ -38,12 +38,57 @@ Once Redis is installed:
     make serve
 
 
-Configuration can be changed to persist everything in memory (not
-recommended). To do that, `conf/readinglist.ini` file should have the
-following config::
+Storage backend
+===============
+
+Configuration can be changed to persist the records in different storage engines.
+
+
+In-Memory
+---------
+
+Useful for development or testing purposes, but records are lost after each server restart.
+
+In `conf/readinglist.ini`::
 
     readinglist.storage_backend = readinglist.storage.memory
 
+
+Redis
+-----
+
+Useful for very low server load, but won't scale since records sorting and filtering
+are performed in memory.
+
+In `conf/readinglist.ini`::
+
+    readinglist.storage_backend = readinglist.storage.simpleredis
+
+*(Optional)* Instance location URI can be customized::
+
+    readinglist.storage_url = localhost:6379/0
+
+
+PostgreSQL
+----------
+
+Recommended in production (*requires PostgreSQL 9.3 or higher*).
+
+Install PostgreSQL client headers::
+
+    sudo apt-get install libpq-dev
+
+Install Reading list related dependencies::
+
+    pip install readinglist[postgresql]
+
+In `conf/readinglist.ini`::
+
+    readinglist.storage_backend = readinglist.storage.postgresql
+
+*(Optional)* Instance location URI can be customized::
+
+    readinglist.storage_url = user:pass@db.server.lan:5432/dbname
 
 
 Install Redis
@@ -73,20 +118,6 @@ Assuming `brew <http://brew.sh/>`_ is installed, Redis installation becomes:
 To restart it (Bug after configuration update)::
 
     brew services restart redis
-
-
-PostgreSQL Backend
-==================
-
-(*draft*)
-
-* 9.3+
-* apt-get install libpq-dev
-* pip install readinglist==postgresql
-
-::
-
-    readinglist.storage_backend = readinglist.storage.postgresql
 
 
 Run tests
