@@ -86,6 +86,7 @@ class PostgreSQL(StorageBase):
         result set.
         """
         try:
+            logger.debug(self._escape(query, kwargs))
             self.cursor.execute(query, kwargs)
         except psycopg2.Error as e:
             self._conn.rollback()

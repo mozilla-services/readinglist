@@ -145,6 +145,15 @@ class BaseTestStorage(object):
         self.assertEqual(total_records, 10)
         self.assertEqual(len(records), 2)
 
+    def test_get_all_handle_sorting_on_id(self):
+        for x in range(3):
+            self.storage.create(self.resource, self.user_id, self.record)
+        sorting = [('id', 1)]
+        records, _ = self.storage.get_all(self.resource,
+                                          self.user_id,
+                                          sorting=sorting)
+        self.assertTrue(records[0]['id'] < records[-1]['id'])
+
     def test_get_all_handle_a_pagination_rules(self):
         for x in range(10):
             record = dict(self.record)
@@ -411,7 +420,7 @@ class DeletedRecordsTest(object):
         self.assertNotIn('deleted', records[1])
         self.assertIn('deleted', records[2])
 
-    def test_sorting_on_arbitrary_field_groups_deleted_at_first(self):
+    def test_sorting_on_arbitrary_field_groups_deleted_at_last(self):
         self.storage.create(self.resource, self.user_id, {'status': 0})
         self.create_and_delete_record({'status': 1})
         self.create_and_delete_record({'status': 2})
@@ -420,9 +429,9 @@ class DeletedRecordsTest(object):
         records, _ = self.storage.get_all(self.resource, self.user_id,
                                           sorting=sorting,
                                           include_deleted=True)
-        self.assertIn('deleted', records[0])
+        self.assertNotIn('deleted', records[0])
         self.assertIn('deleted', records[1])
-        self.assertNotIn('deleted', records[2])
+        self.assertIn('deleted', records[2])
 
     def test_support_sorting_on_deleted_field_groups_deleted_at_first(self):
         # Respect boolean sort order
@@ -517,7 +526,7 @@ class DeletedRecordsTest(object):
     #
 
     def test_pagination_rules_on_last_modified_apply_to_deleted_records(self):
-        for i in range(10):
+        for i in range(15):
             if i % 2 == 0:
                 self.create_and_delete_record()
             else:

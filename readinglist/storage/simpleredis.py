@@ -181,7 +181,7 @@ class Redis(MemoryBasedStorage):
             encoded_results = self._client.mget(keys)
             records = [self._decode(r) for r in encoded_results if r]
 
-        deleted = {}
+        deleted = []
         if include_deleted:
             deleted_ids_key = '{0}.{1}.deleted'.format(resource_name, user_id)
             ids = self._client.smembers(deleted_ids_key)
@@ -191,19 +191,14 @@ class Redis(MemoryBasedStorage):
                     for _id in ids)
 
             encoded_results = self._client.mget(keys)
-            results = [self._decode(r) for r in encoded_results if r]
-            for result in results:
-                deleted[result[resource.id_field]] = result
+            deleted = [self._decode(r) for r in encoded_results if r]
 
         records, count = extract_record_set(resource,
-                                            records + list(deleted.values()),
+                                            records + deleted,
                                             filters, sorting,
                                             pagination_rules, limit)
 
-        filtered_deleted = len([r for r in records
-                                if r[resource.id_field] in deleted])
-
-        return records, count - filtered_deleted
+        return records, count
 
 
 def load_from_config(config):

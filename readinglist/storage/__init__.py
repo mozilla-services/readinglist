@@ -102,10 +102,8 @@ def apply_sorting(records, sorting):
         return result
 
     for field, direction in reversed(sorting):
-        is_boolean_field = isinstance(result[0].get(field, True), bool)
-        desc = direction < 0 or is_boolean_field
-        # If field is missing from record, record will come first
-        result = sorted(result, key=lambda r: r.get(field, -1), reverse=desc)
+        desc = direction < 0
+        result = sorted(result, key=lambda r: r.get(field, ''), reverse=desc)
 
     return result
 
@@ -130,7 +128,10 @@ def extract_record_set(resource, records, filters, sorting,
 
     sorted_ = apply_sorting(paginated, sorting or [])
 
+    field, value = resource.deleted_mark
+    filtered_deleted = len([r for r in sorted_ if r.get(field) == value])
+
     if limit:
         sorted_ = list(sorted_)[:limit]
 
-    return sorted_, total_records
+    return sorted_, total_records - filtered_deleted
