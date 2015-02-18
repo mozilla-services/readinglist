@@ -11,8 +11,6 @@ env:
     - TOX_ENV=flake8
     - TOX_ENV=docs
     - ACTION=loadtest
-before_script:
-    - psql -c 'CREATE DATABASE postgres;' -U postgres
 install:
     - if [[ $ACTION != loadtest ]]; then pip install tox; fi
 script:
