@@ -73,8 +73,15 @@ class PostgreSQL(StorageBase):
         self._conn_pool = ThreadedConnectionPool(**kwargs)
         self._init_schema()
 
+    @property
+    def db(self):
+        """"""
+        return DBClient(self._conn_pool,
+                        nb_retries=self._pool_nb_retries,
+                        retry_msec=self._pool_retry_msec)
+
     def _escape(self, query, placeholders):
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             return cursor.mogrify(query, placeholders)
 
     def _init_schema(self):
@@ -86,7 +93,7 @@ class PostgreSQL(StorageBase):
         # Since indices cannot be created with IF NOT EXISTS, inspect:
         try:
             inspect_tables = "SELECT * FROM records LIMIT 0;"
-            with DBClient(self._conn_pool) as cursor:
+            with self.db as cursor:
                 cursor.execute(inspect_tables)
             exists = True
         except psycopg2.Error:
@@ -102,7 +109,7 @@ class PostgreSQL(StorageBase):
           FROM pg_database
          WHERE datname =  current_database();
         """
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             cursor.execute(query)
             result = cursor.fetchone()
         encoding = result['encoding'].lower()
@@ -111,7 +118,7 @@ class PostgreSQL(StorageBase):
         # Create schema
         here = os.path.abspath(os.path.dirname(__file__))
         schema = open(os.path.join(here, 'schema.sql')).read()
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             cursor.execute(schema)
         logger.info('Created PostgreSQL storage tables')
 
@@ -123,14 +130,14 @@ class PostgreSQL(StorageBase):
         DELETE FROM deleted;
         DELETE FROM records;
         """
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             cursor.execute(query)
             cursor.connection.commit()
         logger.debug('Flushed PostgreSQL storage tables')
 
     def ping(self):
         try:
-            with DBClient(self._conn_pool) as cursor:
+            with self.db as cursor:
                 cursor.execute("SELECT now();")
             return True
         except psycopg2.Error:
@@ -143,7 +150,7 @@ class PostgreSQL(StorageBase):
         """
         resource_name = classname(resource)
         placeholders = dict(user_id=user_id, resource_name=resource_name)
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             cursor.execute(query, placeholders)
             result = cursor.fetchone()
         return result['timestamp']
@@ -159,7 +166,7 @@ class PostgreSQL(StorageBase):
                             resource_name=resource_name,
                             data=json.dumps(record))
 
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             self.check_unicity(resource, user_id, record)
 
             cursor.execute(query, placeholders)
@@ -178,7 +185,7 @@ class PostgreSQL(StorageBase):
          WHERE id = %(record_id)s
         """
         placeholders = dict(record_id=record_id)
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             cursor.execute(query, placeholders)
             if cursor.rowcount == 0:
                 raise exceptions.RecordNotFoundError(record_id)
@@ -209,7 +216,7 @@ class PostgreSQL(StorageBase):
                             resource_name=resource_name,
                             data=json.dumps(record))
 
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             self.check_unicity(resource, user_id, record)
 
             # Create or update ?
@@ -232,7 +239,7 @@ class PostgreSQL(StorageBase):
                             user_id=user_id,
                             resource_name=resource_name)
 
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             query = """
             DELETE
             FROM records
@@ -335,7 +342,7 @@ class PostgreSQL(StorageBase):
             assert isinstance(limit, six.integer_types)  # validated in view
             safeholders['pagination_limit'] = 'LIMIT %s' % limit
 
-        with DBClient(self._conn_pool) as cursor:
+        with self.db as cursor:
             cursor.execute(query % safeholders, placeholders)
             results = cursor.fetchmany(self._max_fetch_size)
 
