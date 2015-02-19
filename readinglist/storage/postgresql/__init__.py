@@ -1,14 +1,16 @@
 import json
 import os
+import time
 from collections import defaultdict
 
 import psycopg2
 import psycopg2.extras
 import six
-from psycopg2.pool import ThreadedConnectionPool
+from psycopg2.pool import ThreadedConnectionPool, PoolError
 from six.moves.urllib import parse as urlparse
 
 from readinglist import logger
+from readinglist import errors
 from readinglist.storage import StorageBase, exceptions
 from readinglist.utils import classname, COMPARISON
 
@@ -16,22 +18,41 @@ from readinglist.utils import classname, COMPARISON
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
+DEFAULT_POOL_MIN_CONN = 2
+DEFAULT_POOL_MAX_CONN = 4
+DEFAULT_POOL_NB_RETRIES = 4
+DEFAULT_POOL_RETRY_MSEC = 100
+DEFAULT_MAX_FETCH_SIZE = 10000
+
 
 class DBClient(object):
     """Wrapper to obtain and release connections from a pool
     using python context managers.
     """
-    def __init__(self, pool):
+    def __init__(self, pool, retry_msec=0, nb_retries=0):
         self._conn_pool = pool
         self._conn = None
         self._cursor = None
+        self._retried = 0
+        self._retry_msec = retry_msec
+        self._nb_retries = nb_retries
 
     def __enter__(self):
         """Obtain a connection and a cursor.
         :note:
             This starts a transaction.
         """
-        self._conn = self._conn_pool.getconn()
+        try:
+            self._conn = self._conn_pool.getconn()
+        except PoolError:
+            if self._retried >= self._nb_retries:
+                self._retried = 0
+                raise errors.HTTPServiceUnavailable()
+            # Retry later, each time with longer interval
+            time.sleep(self._retried * self._retry_msec * 0.001)
+            self._retried += 1
+            return self.__enter__()
+
         options = dict(cursor_factory=psycopg2.extras.DictCursor)
         self._cursor = self._conn.cursor(**options)
         return self._cursor
@@ -70,6 +91,8 @@ class PostgreSQL(StorageBase):
     def __init__(self, *args, **kwargs):
         super(PostgreSQL, self).__init__(*args, **kwargs)
         self._max_fetch_size = kwargs.pop('max_fetch_size')
+        self._pool_nb_retries = kwargs.pop('pool_nb_retries')
+        self._pool_retry_msec = kwargs.pop('pool_retry_msec')
         self._conn_pool = ThreadedConnectionPool(**kwargs)
         self._init_schema()
 
@@ -415,9 +438,14 @@ def load_from_config(config):
     uri = settings.get('storage.url', '')
     uri = urlparse.urlparse(uri)
 
-    pool_minconn = settings.get('postgres.pool_minconn', 4)
-    pool_maxconn = settings.get('postgres.pool_maxconn', 10)
-    max_fetch_size = settings.get('postgres.max_fetch_size', 10000)
+    pool_minconn = settings.get('postgres.pool_minconn', DEFAULT_POOL_MIN_CONN)
+    pool_maxconn = settings.get('postgres.pool_maxconn', DEFAULT_POOL_MIN_CONN)
+    pool_nb_retries = settings.get('postgres.pool_nb_retries',
+                                   DEFAULT_POOL_NB_RETRIES)
+    pool_retry_msec = settings.get('postgres.pool_retry_msec',
+                                   DEFAULT_POOL_RETRY_MSEC)
+    max_fetch_size = settings.get('postgres.max_fetch_size',
+                                  DEFAULT_MAX_FETCH_SIZE)
 
     return PostgreSQL(host=uri.hostname or 'localhost',
                       port=uri.port or 5432,
@@ -426,4 +454,6 @@ def load_from_config(config):
                       database=uri.path[1:] if uri.path else 'postgres',
                       minconn=int(pool_minconn),
                       maxconn=int(pool_maxconn),
+                      pool_nb_retries=int(pool_nb_retries),
+                      pool_retry_msec=int(pool_retry_msec),
                       max_fetch_size=int(max_fetch_size))
