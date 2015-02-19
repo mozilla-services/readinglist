@@ -1,12 +1,11 @@
+import contextlib
 import json
 import os
-import time
 from collections import defaultdict
 
 import psycopg2
 import psycopg2.extras
 import six
-from psycopg2.pool import ThreadedConnectionPool, PoolError
 from six.moves.urllib import parse as urlparse
 
 from readinglist import logger
@@ -18,71 +17,8 @@ from readinglist.utils import classname, COMPARISON
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
 psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
-DEFAULT_POOL_MIN_CONN = 2
-DEFAULT_POOL_MAX_CONN = 4
-DEFAULT_POOL_NB_RETRIES = 4
-DEFAULT_POOL_RETRY_MSEC = 100
+
 DEFAULT_MAX_FETCH_SIZE = 10000
-
-
-class DBClient(object):
-    """Wrapper to obtain and release connections from a pool
-    using python context managers.
-    """
-    def __init__(self, pool, retry_msec=0, nb_retries=0):
-        self._conn_pool = pool
-        self._conn = None
-        self._cursor = None
-        self._retried = 0
-        self._retry_msec = retry_msec
-        self._nb_retries = nb_retries
-
-    def __enter__(self):
-        """Obtain a connection and a cursor.
-        :note:
-            This starts a transaction.
-        """
-        try:
-            self._conn = self._conn_pool.getconn()
-        except PoolError:
-            if self._retried >= self._nb_retries:
-                self._retried = 0
-                raise errors.HTTPServiceUnavailable()
-            # Retry later, each time with longer interval
-            time.sleep(self._retried * self._retry_msec * 0.001)
-            self._retried += 1
-            return self.__enter__()
-
-        options = dict(cursor_factory=psycopg2.extras.DictCursor)
-        self._cursor = self._conn.cursor(**options)
-        return self._cursor
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._cleanup(error=exc_val)
-
-    def __del__(self):
-        self._cleanup()
-
-    def _cleanup(self, error=None):
-        """Clean-up allocated objects during context.
-        * Cursor is closed
-        * Transaction is terminated (or rolledback if error)
-        * Connection is released
-        """
-        if isinstance(error, psycopg2.Error):
-            logger.exception(error)
-        if self._cursor:
-            if error:
-                logger.debug(self._cursor.query)
-            self._cursor.close()
-            self._cursor = None
-        if self._conn:
-            if not self._conn.closed:
-                if error:
-                    self._conn.rollback()
-                self._conn.reset()
-                self._conn_pool.putconn(self._conn)
-            self._conn = None
 
 
 class PostgreSQL(StorageBase):
@@ -91,17 +27,33 @@ class PostgreSQL(StorageBase):
     def __init__(self, *args, **kwargs):
         super(PostgreSQL, self).__init__(*args, **kwargs)
         self._max_fetch_size = kwargs.pop('max_fetch_size')
-        self._pool_nb_retries = kwargs.pop('pool_nb_retries')
-        self._pool_retry_msec = kwargs.pop('pool_retry_msec')
-        self._conn_pool = ThreadedConnectionPool(**kwargs)
+        self._conn_kwargs = kwargs
         self._init_schema()
 
     @property
+    @contextlib.contextmanager
     def db(self):
-        """"""
-        return DBClient(self._conn_pool,
-                        nb_retries=self._pool_nb_retries,
-                        retry_msec=self._pool_retry_msec)
+        conn = None
+        cursor = None
+        try:
+            conn = psycopg2.connect(**self._conn_kwargs)
+            options = dict(cursor_factory=psycopg2.extras.DictCursor)
+            cursor = conn.cursor(**options)
+            yield cursor
+        except psycopg2.Error as e:
+            if cursor:
+                logger.debug(cursor.query)
+            logger.exception(e)
+            if conn and not conn.closed:
+                conn.rollback()
+            if isinstance(e, psycopg2.OperationalError):
+                raise errors.HTTPServiceUnavailable()
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+            if conn and not conn.closed:
+                conn.close()
 
     def _escape(self, query, placeholders):
         with self.db as cursor:
@@ -438,13 +390,7 @@ def load_from_config(config):
     uri = settings.get('storage.url', '')
     uri = urlparse.urlparse(uri)
 
-    pool_minconn = settings.get('postgres.pool_minconn', DEFAULT_POOL_MIN_CONN)
-    pool_maxconn = settings.get('postgres.pool_maxconn', DEFAULT_POOL_MIN_CONN)
-    pool_nb_retries = settings.get('postgres.pool_nb_retries',
-                                   DEFAULT_POOL_NB_RETRIES)
-    pool_retry_msec = settings.get('postgres.pool_retry_msec',
-                                   DEFAULT_POOL_RETRY_MSEC)
-    max_fetch_size = settings.get('postgres.max_fetch_size',
+    max_fetch_size = settings.get('storage.max_fetch_size',
                                   DEFAULT_MAX_FETCH_SIZE)
 
     return PostgreSQL(host=uri.hostname or 'localhost',
@@ -452,8 +398,4 @@ def load_from_config(config):
                       user=uri.username or 'postgres',
                       password=uri.password or 'postgres',
                       database=uri.path[1:] if uri.path else 'postgres',
-                      minconn=int(pool_minconn),
-                      maxconn=int(pool_maxconn),
-                      pool_nb_retries=int(pool_nb_retries),
-                      pool_retry_msec=int(pool_retry_msec),
                       max_fetch_size=int(max_fetch_size))
