@@ -597,3 +597,6 @@ class PostgresqlStorageTest(StorageTest, unittest.TestCase):
 
     def test_number_of_fetched_records_can_be_limited_in_settings(self):
         pass
+
+    def test_connection_is_rolledback_if_error_occurs(self):
+        pass

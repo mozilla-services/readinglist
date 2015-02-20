@@ -33,6 +33,8 @@ class PostgreSQL(StorageBase):
     @property
     @contextlib.contextmanager
     def db(self):
+        """
+        """
         conn = None
         cursor = None
         try:
@@ -55,10 +57,6 @@ class PostgreSQL(StorageBase):
             if conn and not conn.closed:
                 conn.close()
 
-    def _escape(self, query, placeholders):
-        with self.db as cursor:
-            return cursor.mogrify(query, placeholders)
-
     def _init_schema(self):
         """Create PostgreSQL tables, only if not exists.
 
@@ -71,7 +69,7 @@ class PostgreSQL(StorageBase):
             with self.db as cursor:
                 cursor.execute(inspect_tables)
             exists = True
-        except psycopg2.Error:
+        except psycopg2.ProgrammingError:
             exists = False
 
         if exists:
@@ -284,34 +282,32 @@ class PostgreSQL(StorageBase):
         """
         resource_name = classname(resource)
         deleted_mark = json.dumps(dict([resource.deleted_mark]))
+
+        # Unsafe strings escaped by PostgreSQL
         placeholders = dict(user_id=user_id,
                             resource_name=resource_name,
                             deleted_mark=deleted_mark)
 
+        # Safe strings
         safeholders = defaultdict(six.text_type)
 
         if filters:
-            conditions = [self._format_condition(resource, f) for f in filters]
-            and_conditions = ' AND '.join(conditions)
-            safeholders['conditions_filter'] = 'AND %s' % and_conditions
+            safe_sql, holders = self._format_conditions(resource, filters)
+            safeholders['conditions_filter'] = 'AND %s' % safe_sql
+            placeholders.update(**holders)
 
         if not include_deleted:
             safeholders['deleted_limit'] = 'LIMIT 0'
 
         if sorting:
-            sorts = [self._format_sort(resource, s) for s in sorting]
-            sorts = ', '.join(sorts)
-            safeholders['sorting'] = 'ORDER BY %s' % sorts
+            sql, holders = self._format_sorting(resource, sorting)
+            safeholders['sorting'] = sql
+            placeholders.update(**holders)
 
         if pagination_rules:
-            rules = []
-            for rule in pagination_rules:
-                conditions = [self._format_condition(resource, r)
-                              for r in rule]
-                rules.append(' AND '.join(conditions))
-
-            or_rules = ' OR '.join(['(%s)' % r for r in rules])
-            safeholders['pagination_rules'] = 'WHERE %s' % or_rules
+            sql, holders = self._format_pagination(resource, pagination_rules)
+            safeholders['pagination_rules'] = 'WHERE %s' % sql
+            placeholders.update(**holders)
 
         if limit:
             assert isinstance(limit, six.integer_types)  # validated in view
@@ -321,10 +317,10 @@ class PostgreSQL(StorageBase):
             cursor.execute(query % safeholders, placeholders)
             results = cursor.fetchmany(self._max_fetch_size)
 
-        try:
-            count_total = results[0]['count_total']
-        except IndexError:
+        if not len(results):
             return [], 0
+
+        count_total = results[0]['count_total']
 
         records = []
         for result in results:
@@ -335,54 +331,111 @@ class PostgreSQL(StorageBase):
 
         return records, count_total
 
-    def _format_condition(self, resource, filter_):
-        """Format the filter in SQL.
+    def _format_conditions(self, resource, filters, prefix='filters'):
+        """Format the filters list in SQL, with placeholders for safe escaping.
 
         :note:
+            All conditions are combined using AND.
 
+        :note:
             Field name and value are escaped as they come from HTTP API.
-        """
-        field, value, operator = filter_
 
+        :returns: A SQL string with placeholders, and a dict mapping
+            placeholders to actual values.
+        :rtype: tuple
+        """
         operators = {
             COMPARISON.EQ: '=',
             COMPARISON.NOT: '<>',
         }
-        operator = operators.setdefault(operator, operator)
 
-        if field == resource.id_field:
-            field = 'id'
-        elif field == resource.modified_field:
-            field = 'last_modified::BIGINT'
-        else:
-            # JSON operator ->> retrieves values as text.
-            # If field is missing, we default to 'null'.
-            field = self._escape("coalesce(data->>%s, '')", (field,))
-            # JSON-ify the native value (e.g. True -> 'true')
-            value = json.dumps(value).strip('"')
+        conditions = []
+        holders = {}
+        for i, filter_ in enumerate(filters):
+            field, value, operator = filter_
 
-        safe = "%s %s %%s" % (field, operator)
-        return self._escape(safe, (value,))
+            if field == resource.id_field:
+                sql_field = 'id'
+            elif field == resource.modified_field:
+                sql_field = 'last_modified::BIGINT'
+            else:
+                # Safely escape field name
+                field_holder = '%s_field_%s' % (prefix, i)
+                holders[field_holder] = field
+                # JSON operator ->> retrieves values as text.
+                # If field is missing, we default to ''.
+                sql_field = "coalesce(data->>%%(%s)s, '')" % field_holder
+                # JSON-ify the native value (e.g. True -> 'true')
+                value = json.dumps(value).strip('"')
 
-    def _format_sort(self, resource, sort):
-        """Format the sort in SQL instruction.
+            # Safely escape value
+            value_holder = '%s_value_%s' % (prefix, i)
+            holders[value_holder] = value
+
+            sql_operator = operators.setdefault(operator, operator)
+            cond = "%s %s %%(%s)s" % (sql_field, sql_operator, value_holder)
+            conditions.append(cond)
+
+        safe_sql = ' AND '.join(conditions)
+        return safe_sql, holders
+
+    def _format_pagination(self, resource, pagination_rules):
+        """Format the pagination rules in SQL, with placeholders for
+        safe escaping.
 
         :note:
+            All rules are combined using OR.
 
-            Field name is escaped as it comes from HTTP API.
+        :note:
+            Field names are escaped as they come from HTTP API.
+
+        :returns: A SQL string with placeholders, and a dict mapping
+            placeholders to actual values.
+        :rtype: tuple
         """
-        field, direction = sort
-        direction = 'ASC' if direction > 0 else 'DESC'
+        rules = []
+        placeholders = {}
 
-        if field == resource.id_field:
-            field = 'id'
-        elif field == resource.modified_field:
-            field = 'last_modified'
-        else:
-            field = self._escape("data->>%s", (field,))
+        for i, rule in enumerate(pagination_rules):
+            prefix = 'rules_%s' % i
+            safe_sql, holders = self._format_conditions(resource, rule,
+                                                        prefix=prefix)
+            rules.append(safe_sql)
+            placeholders.update(**holders)
 
-        safe = "%s %s" % (field, direction)
-        return safe
+        safe_sql = ' OR '.join(['(%s)' % r for r in rules])
+        return safe_sql, placeholders
+
+    def _format_sorting(self, resource, sorting):
+        """Format the sorting in SQL, with placeholders for safe escaping.
+
+        :note:
+            Field names are escaped as they come from HTTP API.
+
+        :returns: A SQL string with placeholders, and a dict mapping
+            placeholders to actual values.
+        :rtype: tuple
+        """
+        sorts = []
+        holders = {}
+        for i, sort in enumerate(sorting):
+            field, direction = sort
+
+            if field == resource.id_field:
+                sql_field = 'id'
+            elif field == resource.modified_field:
+                sql_field = 'last_modified'
+            else:
+                field_holder = 'sort_field_%s' % i
+                holders[field_holder] = field
+                sql_field = 'data->>%%(%s)s' % field_holder
+
+            sql_direction = 'ASC' if direction > 0 else 'DESC'
+            sort = "%s %s" % (sql_field, sql_direction)
+            sorts.append(sort)
+
+        safe_sql = 'ORDER BY %s' % (', '.join(sorts))
+        return safe_sql, holders
 
 
 def load_from_config(config):
