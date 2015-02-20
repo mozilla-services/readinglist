@@ -49,9 +49,11 @@ class TestResource(object):
 class BaseTestStorage(object):
     backend = None
 
+    settings = {}
+
     def __init__(self, *args, **kwargs):
         super(BaseTestStorage, self).__init__(*args, **kwargs)
-        empty_settings = mock.Mock(registry=mock.Mock(settings={}))
+        empty_settings = mock.Mock(registry=mock.Mock(settings=self.settings))
         self.storage = self.backend.load_from_config(empty_settings)
         self.resource = TestResource()
         self.user_id = '1234'
@@ -582,6 +584,9 @@ class MemoryStorageTest(StorageTest, unittest.TestCase):
 
 class PostgresqlStorageTest(StorageTest, unittest.TestCase):
     backend = postgresql
+    settings = {
+        'storage.url': 'postgres://postgres:postgres@localhost:5432/postgres'
+    }
 
     def test_ping_returns_an_error_if_unavailable(self):
         import psycopg2

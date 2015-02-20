@@ -440,15 +440,18 @@ class PostgreSQL(StorageBase):
 
 def load_from_config(config):
     settings = config.registry.settings
-    uri = settings.get('storage.url', '')
-    uri = urlparse.urlparse(uri)
 
     max_fetch_size = settings.get('storage.max_fetch_size',
                                   DEFAULT_MAX_FETCH_SIZE)
 
-    return PostgreSQL(host=uri.hostname or 'localhost',
-                      port=uri.port or 5432,
-                      user=uri.username or 'postgres',
-                      password=uri.password or 'postgres',
-                      database=uri.path[1:] if uri.path else 'postgres',
-                      max_fetch_size=int(max_fetch_size))
+    uri = settings.get('storage.url', '')
+    uri = urlparse.urlparse(uri)
+    conn_kwargs = dict(host=uri.hostname,
+                       port=uri.port,
+                       user=uri.username,
+                       password=uri.password,
+                       database=uri.path[1:] if uri.path else '')
+    # Filter specified values only, to preserve PostgreSQL defaults
+    conn_kwargs = dict([(k, v) for k, v in conn_kwargs.items() if v])
+
+    return PostgreSQL(max_fetch_size=int(max_fetch_size), **conn_kwargs)
