@@ -11,14 +11,17 @@ ACTIONS_FREQUENCIES = [
     ('update', 50),
     ('filter_sort', 60),
     ('read_further', 80),
+    ('batch_read_further', 80),
     ('mark_as_read', 40),
     ('create_conflict', 10),
     ('update_conflict', 10),
     ('archive', 10),
+    ('batch_archive', 30),
     ('delete', 10),
     ('poll_changes', 90),
     ('list_archived', 20),
     ('list_deleted', 40),
+    ('batch_count', 50),
     ('list_continuated_pagination', 80),
 ]
 
@@ -59,11 +62,13 @@ class TestBasic(TestCase):
         # Pick a random record
         self.random_record = random.choice(records)
         self.random_id = self.random_record['id']
-        self.random_url = self.api_url('articles/{0}'.format(self.random_id))
+        self.random_url = self.api_url('articles/%s' % self.random_id)
 
         # Pick another random, different
         records.remove(self.random_record)
         self.random_record_2 = random.choice(records)
+        self.random_id_2 = self.random_record_2['id']
+        self.random_url_2 = self.api_url('articles/%s' % self.random_id_2)
 
     def test_all(self):
         """Choose a random action among available, if not frequent enough,
@@ -141,6 +146,20 @@ class TestBasic(TestCase):
         }
         self._patch(self.random_url, data)
 
+    def batch_read_further(self):
+        data = {}
+        for i in range(25):
+            request = {
+                "path": self.random_url if i % 2 == 0 else self.random_url_2,
+                "method": "PATCH",
+                "body": {
+                    "read_position": random.randint(0, 10000)
+                }
+            }
+            data.setdefault("requests", []).append(request)
+
+        self.session.post(self.api_url('batch'), data, auth=self.basic_auth)
+
     def mark_as_read(self):
         data = {
             "marked_read_by": "Desktop",
@@ -162,6 +181,19 @@ class TestBasic(TestCase):
         }
         self._patch(self.random_url, data)
 
+    def batch_archive(self):
+        data = {
+            "defaults": {
+                "method": "PATCH",
+                "body": {"archived": "true"}
+            },
+            "requests": [
+                {"path": self.random_url},
+                {"path": self.random_url_2}
+            ]
+        }
+        self.session.post(self.api_url('batch'), data, auth=self.basic_auth)
+
     def delete(self):
         resp = self.session.delete(self.random_url, auth=self.basic_auth)
         self.incr_counter(resp.status_code)
@@ -177,6 +209,21 @@ class TestBasic(TestCase):
         archived_url = self.api_url('articles?archived=true')
         resp = self.session.get(archived_url, auth=self.basic_auth)
         self.assertEqual(resp.status_code, 200)
+
+    def batch_count(self):
+        data = {
+            "defaults": {
+                "method": "HEAD",
+            },
+            "requests": [
+                {"path": self.api_url("articles?archived=true")},
+                {"path": self.api_url("articles?is_article=true")},
+                {"path": self.api_url("articles?favorite=true")},
+                {"path": self.api_url("articles?unread=false")},
+                {"path": self.api_url("articles?min_read_position=100")}
+            ]
+        }
+        self.session.post(self.api_url('batch'), data, auth=self.basic_auth)
 
     def list_deleted(self):
         modif = self.random_record['last_modified']
