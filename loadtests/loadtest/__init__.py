@@ -99,8 +99,12 @@ class TestBasic(TestCase):
             self.test_all()
 
     def _run_batch(self, data):
-        url = self.api_url('batch')
-        resp = self.session.post(url, data, auth=self.basic_auth)
+        resp = self.session.post(self.api_url('batch'),
+                                 data=json.dumps(data),
+                                 auth=self.basic_auth,
+                                 headers={'Content-Type': 'application/json'})
+        self.incr_counter(resp.status_code)
+        self.assertEqual(resp.status_code, 200)
         for subresponse in resp.json()['responses']:
             self.incr_counter(subresponse['status'])
 
@@ -174,16 +178,19 @@ class TestBasic(TestCase):
 
     def batch_read_further(self):
         # Get some random articles on which the batch will be applied
-        url = self.api_url('articles?_limit=5&sort=title')
+        url = self.api_url('articles?_limit=5&_sort=title')
         resp = self.session.get(url, auth=self.basic_auth)
         articles = resp.json()['items']
-        urls = [self.api_url('articles/{}'.format(a['id'])) for a in articles]
+        urls = ['/articles/{}'.format(a['id']) for a in articles]
 
-        data = {}
+        data = {
+            "defaults": {
+                "method": "PATCH",
+            }
+        }
         for i in range(25):
             request = {
                 "path": urls[i % len(urls)],
-                "method": "PATCH",
                 "body": {
                     "read_position": random.randint(0, 10000)
                 }
@@ -220,8 +227,8 @@ class TestBasic(TestCase):
                 "body": {"archived": "true"}
             },
             "requests": [
-                {"path": self.random_url},
-                {"path": self.random_url_2}
+                {"path": '/articles/%s' % self.random_id},
+                {"path": '/articles/%s' % self.random_id_2}
             ]
         }
         self._run_batch(data)
@@ -233,13 +240,15 @@ class TestBasic(TestCase):
 
     def batch_delete(self):
         # Get some random articles on which the batch will be applied
-        url = self.api_url('articles?_limit=5&sort=title')
+        url = self.api_url('articles?_limit=5&_sort=title')
         resp = self.session.get(url, auth=self.basic_auth)
         articles = resp.json()['items']
-        urls = [self.api_url('articles/{}'.format(a['id'])) for a in articles]
+        urls = ['/articles/{}'.format(a['id']) for a in articles]
 
         data = {
-            "defaults": {"method": "DELETE"}
+            "defaults": {
+                "method": "DELETE"
+            }
         }
         for i in range(25):
             request = {"path": urls[i % len(urls)]}
@@ -264,11 +273,11 @@ class TestBasic(TestCase):
                 "method": "HEAD",
             },
             "requests": [
-                {"path": self.api_url("articles?archived=true")},
-                {"path": self.api_url("articles?is_article=true")},
-                {"path": self.api_url("articles?favorite=true")},
-                {"path": self.api_url("articles?unread=false")},
-                {"path": self.api_url("articles?min_read_position=100")}
+                {"path": "/articles?archived=true"},
+                {"path": "/articles?is_article=true"},
+                {"path": "/articles?favorite=true"},
+                {"path": "/articles?unread=false"},
+                {"path": "/articles?min_read_position=100"}
             ]
         }
         self._run_batch(data)
