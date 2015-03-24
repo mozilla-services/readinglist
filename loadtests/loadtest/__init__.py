@@ -9,19 +9,35 @@ from loads.case import TestCase
 
 ACTIONS_FREQUENCIES = [
     ('create', 20),
+    ('batch_create', 50),
     ('update', 50),
     ('filter_sort', 60),
     ('read_further', 80),
+    ('batch_read_further', 80),
     ('mark_as_read', 40),
     ('create_conflict', 10),
     ('update_conflict', 10),
     ('archive', 10),
+    ('batch_archive', 30),
     ('delete', 10),
+    ('batch_delete', 10),
     ('poll_changes', 90),
     ('list_archived', 20),
     ('list_deleted', 40),
+    ('batch_count', 50),
     ('list_continuated_pagination', 80),
 ]
+
+
+def build_article():
+    suffix = uuid.uuid4().hex
+    data = {
+        "title": "Corp Site {0}".format(suffix),
+        "url": "http://mozilla.org/{0}".format(suffix),
+        "resolved_url": "http://mozilla.org/{0}".format(suffix),
+        "added_by": "FxOS-{0}".format(suffix),
+    }
+    return data
 
 
 class TestBasic(TestCase):
@@ -60,11 +76,13 @@ class TestBasic(TestCase):
         # Pick a random record
         self.random_record = random.choice(records)
         self.random_id = self.random_record['id']
-        self.random_url = self.api_url('articles/{0}'.format(self.random_id))
+        self.random_url = self.api_url('articles/%s' % self.random_id)
 
         # Pick another random, different
         records.remove(self.random_record)
         self.random_record_2 = random.choice(records)
+        self.random_id_2 = self.random_record_2['id']
+        self.random_url_2 = self.api_url('articles/%s' % self.random_id_2)
 
     def test_all(self):
         """Choose a random action among available, if not frequent enough,
@@ -86,20 +104,37 @@ class TestBasic(TestCase):
         else:
             self.test_all()
 
+    def _run_batch(self, data):
+        resp = self.session.post(self.api_url('batch'),
+                                 data=json.dumps(data),
+                                 auth=self.basic_auth,
+                                 headers={'Content-Type': 'application/json'})
+        self.incr_counter(resp.status_code)
+        self.assertEqual(resp.status_code, 200)
+        for subresponse in resp.json()['responses']:
+            self.incr_counter(subresponse['status'])
+
     def create(self):
-        suffix = uuid.uuid4().hex
-        data = {
-            "title": "Corp Site {0}".format(suffix),
-            "url": "http://mozilla.org/{0}".format(suffix),
-            "resolved_url": "http://mozilla.org/{0}".format(suffix),
-            "added_by": "FxOS-{0}".format(suffix),
-        }
+        data = build_article()
         resp = self.session.post(
             self.api_url('articles'),
             data,
             auth=self.basic_auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 201)
+
+    def batch_create(self):
+        data = {
+            "defaults": {
+                "method": "POST",
+                "path": "/articles"
+            }
+        }
+        for i in range(25):
+            request = {"body": build_article()}
+            data.setdefault("requests", []).append(request)
+
+        self._run_batch(data)
 
     def create_conflict(self):
         data = self.random_record.copy()
@@ -147,6 +182,29 @@ class TestBasic(TestCase):
         }
         self._patch(self.random_url, data)
 
+    def batch_read_further(self):
+        # Get some random articles on which the batch will be applied
+        url = self.api_url('articles?_limit=5&_sort=title')
+        resp = self.session.get(url, auth=self.basic_auth)
+        articles = resp.json()['items']
+        urls = ['/articles/{}'.format(a['id']) for a in articles]
+
+        data = {
+            "defaults": {
+                "method": "PATCH",
+            }
+        }
+        for i in range(25):
+            request = {
+                "path": urls[i % len(urls)],
+                "body": {
+                    "read_position": random.randint(0, 10000)
+                }
+            }
+            data.setdefault("requests", []).append(request)
+
+        self._run_batch(data)
+
     def mark_as_read(self):
         data = {
             "marked_read_by": "Desktop",
@@ -168,10 +226,41 @@ class TestBasic(TestCase):
         }
         self._patch(self.random_url, data)
 
+    def batch_archive(self):
+        data = {
+            "defaults": {
+                "method": "PATCH",
+                "body": {"archived": "true"}
+            },
+            "requests": [
+                {"path": '/articles/%s' % self.random_id},
+                {"path": '/articles/%s' % self.random_id_2}
+            ]
+        }
+        self._run_batch(data)
+
     def delete(self):
         resp = self.session.delete(self.random_url, auth=self.basic_auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
+
+    def batch_delete(self):
+        # Get some random articles on which the batch will be applied
+        url = self.api_url('articles?_limit=5&_sort=title')
+        resp = self.session.get(url, auth=self.basic_auth)
+        articles = resp.json()['items']
+        urls = ['/articles/{}'.format(a['id']) for a in articles]
+
+        data = {
+            "defaults": {
+                "method": "DELETE"
+            }
+        }
+        for i in range(25):
+            request = {"path": urls[i % len(urls)]}
+            data.setdefault("requests", []).append(request)
+
+        self._run_batch(data)
 
     def poll_changes(self):
         last_modified = self.random_record['last_modified']
@@ -183,6 +272,21 @@ class TestBasic(TestCase):
         archived_url = self.api_url('articles?archived=true')
         resp = self.session.get(archived_url, auth=self.basic_auth)
         self.assertEqual(resp.status_code, 200)
+
+    def batch_count(self):
+        data = {
+            "defaults": {
+                "method": "HEAD",
+            },
+            "requests": [
+                {"path": "/articles?archived=true"},
+                {"path": "/articles?is_article=true"},
+                {"path": "/articles?favorite=true"},
+                {"path": "/articles?unread=false"},
+                {"path": "/articles?min_read_position=100"}
+            ]
+        }
+        self._run_batch(data)
 
     def list_deleted(self):
         modif = self.random_record['last_modified']
