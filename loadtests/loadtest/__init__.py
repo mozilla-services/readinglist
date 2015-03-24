@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import uuid
 
@@ -74,6 +75,11 @@ class TestBasic(TestCase):
             This method is called as many times as number of hits.
         """
         action, percentage = random.choice(ACTIONS_FREQUENCIES)
+
+        forced_action = os.getenv('LOAD_ACTION')
+        if forced_action:
+            action, percentage = forced_action, 101
+
         if random.randint(0, 100) < percentage:
             self.incr_counter(action)
             return getattr(self, action)()
