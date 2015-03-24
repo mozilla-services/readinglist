@@ -6,7 +6,10 @@ This document describes changes between each past release.
 1.3.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+**Bug fixes**
+
+- Fix regression on records URL unicity (#)
+- Fix hashing of user_id for BasicAuth (#)
 
 
 1.2.0 (2015-03-20)
