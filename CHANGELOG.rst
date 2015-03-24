@@ -9,7 +9,31 @@ This document describes changes between each past release.
 **Bug fixes**
 
 - Fix regression on records URL unicity (#)
-- Fix hashing of user_id for BasicAuth (#)
+- Fix hashing of user_id for BasicAuth (mozilla-services/cliquet#128)
+- Force PostgreSQl session timezone to UTC (mozilla-services/cliquet#122)
+- Make sure the `paginate_by` setting overrides the passed `limit`
+  argument (mozilla-services/cliquet#129)
+- Fix limit comparison under Python3 (mozilla-services/cliquet#143)
+- Do not serialize using JSON if not necessary (mozilla-services/cliquet#131)
+- Fix crash of classic logger with unicode (mozilla-services/cliquet#142)
+- Fix crash of CloudStorage backend when remote returns 500 (mozilla-services/cliquet#142)
+- Fix behaviour of CloudStorage with backslashes in querystring (mozilla-services/cliquet#142)
+- Fix python3.4 segmentation fault (mozilla-services/cliquet#142)
+- Add missing port in Next-Page header (mozilla-services/cliquet#147)
+
+
+**Internal changes**
+
+- Use ujson again, it was removed in the 1.3.2 release (#132)
+- Add index for as_epoch(last_modified) (#130). Please add the following
+  statements to SQL for the migration::
+
+    CREATE INDEX idx_records_last_modified_epoch ON records(as_epoch(last_modified));
+    CREATE INDEX idx_deleted_last_modified_epoch ON deleted(as_epoch(last_modified));
+
+- Prevent fetching to many records for one user collection (#130)
+- Use UPSERT for the heartbeat (#141)
+- Improve tests of basic auth (#128)
 
 
 1.2.0 (2015-03-20)
