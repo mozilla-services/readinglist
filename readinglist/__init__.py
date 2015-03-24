@@ -13,12 +13,12 @@ API_VERSION = 'v%s' % __version__.split('.')[0]
 # Main readinglist logger
 logger = logging.getLogger(__name__)
 
-import gevent
-import gevent.monkey
-gevent.monkey.patch_socket()
-
-import psycogreen.gevent
-psycogreen.gevent.patch_psycopg()
+# import gevent
+# import gevent.monkey
+# gevent.monkey.patch_socket()
+#
+# import psycogreen.gevent
+# psycogreen.gevent.patch_psycopg()
 
 
 def main(global_config, **settings):
