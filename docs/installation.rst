@@ -214,12 +214,12 @@ should be present with a path to it.
 Running with gevent
 -------------------
 
-It is possible to use `gevent <https://gevent.org>`_. To do so, the following
-configuration should be used.
+It is possible to use `gevent <https://gevent.org>`_, by adding this in the
+configuration:
 
 .. code-block :: ini
 
-      readinglist.gevent_enabled = True
+      readinglist.gevent_enabled = true
 
 Gevent and psycogreen should be installed in the virtualenv for it to work
 properly::
@@ -228,5 +228,5 @@ properly::
 
 :note:
 
-    Gevent support is known to have issues with Python 3, and as such it
+    Gevent support is known to have issues with Python 3, and as such, it
     is discouraged to use it in this environment.
