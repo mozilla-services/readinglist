@@ -199,13 +199,34 @@ On the first app run, the tables and objects are created.
 Running with uWsgi
 ------------------
 
-If you want to run the application using uWsgi, you can use
-the provided **app.wsgi** file and this command::
+To run the application using uWsgi, an **app.wsgi** file is provided.
+This command can be used to run it::
 
     uwsgi --ini config/readinglist.ini
 
-You can tweak the uWsgi configuration in the ini file in
-the dedicated **[uwsgi]** section.
+uWsgi configuration can be tweaked in the ini file in the dedicated
+**[uwsgi]** section.
 
-If you are using a different ini file, you need to set
-its path in the ``READINGLIST_INI`` environment variable.
+To use a different ini file, the ``READINGLIST_INI`` environment variable
+should be present with a path to it.
+
+
+Running with gevent
+-------------------
+
+It is possible to use `gevent <https://gevent.org>`_, by adding this in the
+configuration:
+
+.. code-block :: ini
+
+      readinglist.gevent_enabled = true
+
+Gevent and psycogreen should be installed in the virtualenv for it to work
+properly::
+
+    .venv/bin/pip install gevent psycogreen
+
+:note:
+
+    Gevent support is known to have issues with Python 3, and as such, it
+    is discouraged to use it in this environment.
