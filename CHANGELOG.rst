@@ -3,10 +3,54 @@ Changelog
 
 This document describes changes between each past release.
 
-1.3.0 (unreleased)
+1.3.0 (2015-03-25)
 ------------------
 
-- Nothing changed yet.
+**Deployment instructions**
+
+Until the database schema migration system is released (mozilla-services/cliquet#139),
+changes on schema have to be applied manually:
+
+::
+
+    ALTER FUNCTION as_epoch(TIMESTAMP) IMMUTABLE;
+    CREATE INDEX idx_records_last_modified_epoch ON records(as_epoch(last_modified));
+    CREATE INDEX idx_deleted_last_modified_epoch ON deleted(as_epoch(last_modified));
+
+**New features**
+
+- Add setting to enable to asynchronous PostgreSQL using `Psycogreen <https://pypi.python.org/pypi/psycogreen>`_.
+  (*default: disabled*). See installation documentation for more details on this.
+- Add ability to execute only action in loads tests using the ``LOAD_ACTION``
+  environment variable. See contributing documentation for more details (#208).
+- Add new load tests with several kinds of batch operations (#204)
+
+**Bug fixes**
+
+- Fix pagination URL in Next-page headers (fixes #210)
+- Fix regression on records URL unicity when using ujson (#205)
+- Fix hashing of user_id for BasicAuth (mozilla-services/cliquet#128)
+- Force PostgreSQl session timezone to UTC (mozilla-services/cliquet#122)
+- Make sure the `paginate_by` setting overrides the passed `limit`
+  argument (mozilla-services/cliquet#129)
+- Fix limit comparison under Python3 (mozilla-services/cliquet#143)
+- Do not serialize using JSON if not necessary (mozilla-services/cliquet#131)
+- Fix crash of classic logger with unicode (mozilla-services/cliquet#142)
+- Fix crash of CloudStorage backend when remote returns 500 (mozilla-services/cliquet#142)
+- Fix behaviour of CloudStorage with backslashes in querystring (mozilla-services/cliquet#142)
+- Fix python3.4 segmentation fault (mozilla-services/cliquet#142)
+- Add missing port in Next-Page header (mozilla-services/cliquet#147)
+
+
+**Internal changes**
+
+- Use postgres cache in loads tests (#203)
+- Use ujson again, it was removed in the 1.3.2 release (#132)
+- Add index for as_epoch(last_modified) (#130). Please add the following
+  statements to SQL for the migration::
+- Prevent fetching to many records for one user collection (#130)
+- Use UPSERT for the heartbeat (#141)
+- Improve tests of basic auth (#128)
 
 
 1.2.0 (2015-03-20)

@@ -15,7 +15,7 @@ REQUIREMENTS = [
     'cornice>=0.20.0',
     'six>=1.9.0',
     'waitress>=0.8.9',
-    'cliquet[postgresql]>=1.3.0',
+    'cliquet[postgresql]>=1.4.1',
 ]
 
 ENTRY_POINTS = {
@@ -24,7 +24,7 @@ ENTRY_POINTS = {
     ]}
 
 setup(name='readinglist',
-      version='1.3.0.dev0',
+      version='1.3.0',
       description='readinglist',
       long_description=README + "\n\n" + CHANGELOG,
       license='Apache License (2.0)',
