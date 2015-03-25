@@ -28,6 +28,7 @@ This document describes changes between each past release.
 - Add index for as_epoch(last_modified) (#130). Please add the following
   statements to SQL for the migration::
 
+    ALTER FUNCTION as_epoch(TIMESTAMP) IMMUTABLE;
     CREATE INDEX idx_records_last_modified_epoch ON records(as_epoch(last_modified));
     CREATE INDEX idx_deleted_last_modified_epoch ON deleted(as_epoch(last_modified));
 
