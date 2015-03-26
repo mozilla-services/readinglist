@@ -32,5 +32,11 @@ def main(global_config, **settings):
     patch_gevent(settings)
 
     initialize_cliquet(config, version=__version__)
+
+    # Force default pagination (if empty, None or 0)
+    paginate_by = config.registry.settings.get('cliquet.paginate_by')
+    if not paginate_by:
+        config.registry.settings['cliquet.paginate_by'] = 100
+
     config.scan("readinglist.views")
     return config.make_wsgi_app()
