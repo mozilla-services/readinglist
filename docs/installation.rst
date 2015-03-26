@@ -226,7 +226,7 @@ configuration:
 Gevent and psycogreen should be installed in the virtualenv for it to work
 properly::
 
-    .venv/bin/pip install gevent psycogreen
+    .venv/bin/pip install gevent psycogreen grequests
 
 :note:
 
