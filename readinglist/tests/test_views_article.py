@@ -39,6 +39,16 @@ class IntegrationTest(BaseWebTest, unittest.TestCase):
                      'Origin': 'http://localhost/'},
             status=200)
 
+    def test_default_paginate_by_is_100(self):
+        for i in range(102):
+            data = MINIMALIST_ARTICLE.copy()
+            data['url'] += '-%s' % i
+            self.app.post_json('/articles',
+                               data,
+                               headers=self.headers)
+        resp = self.app.get('/articles', headers=self.headers)
+        self.assertEqual(len(resp.json['items']), 100)
+
 
 class ArticleModificationTest(BaseWebTest, unittest.TestCase):
     def setUp(self):
