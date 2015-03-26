@@ -3,9 +3,9 @@ import os
 import random
 import uuid
 
-from requests.auth import HTTPBasicAuth
+from requests.auth import HTTPBasicAuth, AuthBase
 from loads.case import TestCase
-
+from konfig import Config
 
 ACTIONS_FREQUENCIES = [
     ('create', 20),
@@ -40,6 +40,15 @@ def build_article():
     return data
 
 
+class RawAuth(AuthBase):
+    def __init__(self, authorization):
+        self.authorization = authorization
+
+    def __call__(self, r):
+        r.headers['Authorization'] = self.authorization
+        return r
+
+
 class TestBasic(TestCase):
     def __init__(self, *args, **kwargs):
         """Initialization that happens once per user.
@@ -49,9 +58,13 @@ class TestBasic(TestCase):
             This method is called as many times as number of users.
         """
         super(TestBasic, self).__init__(*args, **kwargs)
-
-        self.random_user = uuid.uuid4().hex
-        self.basic_auth = HTTPBasicAuth(self.random_user, 'secret')
+        self.conf = Config(self.config['config']).get_map('loads')
+        if self.conf.get('smoke', False):
+            self.random_user = "test@restmail.net"
+            self.auth = RawAuth("Bearer %s" % self.conf.get('token'))
+        else:
+            self.random_user = uuid.uuid4().hex
+            self.auth = HTTPBasicAuth(self.random_user, 'secret')
 
         # Create at least some records for this user
         self.nb_initial_records = random.randint(3, 100)
@@ -70,7 +83,7 @@ class TestBasic(TestCase):
             self.create()
             self.nb_initial_records -= 1
 
-        resp = self.session.get(self.api_url('articles'), auth=self.basic_auth)
+        resp = self.session.get(self.api_url('articles'), auth=self.auth)
         records = resp.json()['items']
 
         # Pick a random record
@@ -107,7 +120,7 @@ class TestBasic(TestCase):
     def _run_batch(self, data):
         resp = self.session.post(self.api_url('batch'),
                                  data=json.dumps(data),
-                                 auth=self.basic_auth,
+                                 auth=self.auth,
                                  headers={'Content-Type': 'application/json'})
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
@@ -119,7 +132,7 @@ class TestBasic(TestCase):
         resp = self.session.post(
             self.api_url('articles'),
             data,
-            auth=self.basic_auth)
+            auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 201)
 
@@ -142,7 +155,7 @@ class TestBasic(TestCase):
         resp = self.session.post(
             self.api_url('articles'),
             data,
-            auth=self.basic_auth)
+            auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
 
@@ -157,13 +170,13 @@ class TestBasic(TestCase):
         queryparams = random.choice(queries)
         query_url = '&'.join(['='.join(param) for param in queryparams])
         url = self.api_url('articles?{}'.format(query_url))
-        resp = self.session.get(url, auth=self.basic_auth)
+        resp = self.session.get(url, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
 
     def _patch(self, url, data, status=200):
         data = json.dumps(data)
-        resp = self.session.patch(url, data, auth=self.basic_auth)
+        resp = self.session.patch(url, data, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, status)
 
@@ -185,7 +198,7 @@ class TestBasic(TestCase):
     def batch_read_further(self):
         # Get some random articles on which the batch will be applied
         url = self.api_url('articles?_limit=5&_sort=title')
-        resp = self.session.get(url, auth=self.basic_auth)
+        resp = self.session.get(url, auth=self.auth)
         articles = resp.json()['items']
         urls = ['/articles/{}'.format(a['id']) for a in articles]
 
@@ -240,14 +253,14 @@ class TestBasic(TestCase):
         self._run_batch(data)
 
     def delete(self):
-        resp = self.session.delete(self.random_url, auth=self.basic_auth)
+        resp = self.session.delete(self.random_url, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
 
     def batch_delete(self):
         # Get some random articles on which the batch will be applied
         url = self.api_url('articles?_limit=5&_sort=title')
-        resp = self.session.get(url, auth=self.basic_auth)
+        resp = self.session.get(url, auth=self.auth)
         articles = resp.json()['items']
         urls = ['/articles/{}'.format(a['id']) for a in articles]
 
@@ -265,12 +278,12 @@ class TestBasic(TestCase):
     def poll_changes(self):
         last_modified = self.random_record['last_modified']
         modified_url = self.api_url('articles?_since=%s' % last_modified)
-        resp = self.session.get(modified_url, auth=self.basic_auth)
+        resp = self.session.get(modified_url, auth=self.auth)
         self.assertEqual(resp.status_code, 200)
 
     def list_archived(self):
         archived_url = self.api_url('articles?archived=true')
-        resp = self.session.get(archived_url, auth=self.basic_auth)
+        resp = self.session.get(archived_url, auth=self.auth)
         self.assertEqual(resp.status_code, 200)
 
     def batch_count(self):
@@ -291,14 +304,14 @@ class TestBasic(TestCase):
     def list_deleted(self):
         modif = self.random_record['last_modified']
         deleted_url = self.api_url('articles?_since=%s&deleted=true' % modif)
-        resp = self.session.get(deleted_url, auth=self.basic_auth)
+        resp = self.session.get(deleted_url, auth=self.auth)
         self.assertEqual(resp.status_code, 200)
 
     def list_continuated_pagination(self):
         paginated_url = self.api_url('articles?_limit=20')
 
         while paginated_url:
-            resp = self.session.get(paginated_url, auth=self.basic_auth)
+            resp = self.session.get(paginated_url, auth=self.auth)
             self.assertEqual(resp.status_code, 200)
             next_page = resp.headers.get("Next-Page")
             self.assertNotEqual(paginated_url, next_page)
