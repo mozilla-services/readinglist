@@ -156,7 +156,7 @@ Monitoring
 
     # Sentry
     cliquet.sentry_url = http://public:secret@example.com/1
-    cliquet.sentry_projects = readinglist,requests
+    cliquet.sentry_projects = readinglist,cliquet
 
     # StatsD
     cliquet.statsd_url = udp://carbon.server:8125
