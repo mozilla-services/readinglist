@@ -1,6 +1,8 @@
 import pkg_resources
 import logging
 
+from werkzeug.contrib.profiler import ProfilerMiddleware
+
 from pyramid.config import Configurator
 from pyramid.settings import asbool
 
@@ -39,4 +41,5 @@ def main(global_config, **settings):
         config.registry.settings['cliquet.paginate_by'] = 100
 
     config.scan("readinglist.views")
-    return config.make_wsgi_app()
+    app = config.make_wsgi_app()
+    return ProfilerMiddleware(app, profile_dir="/tmp/profiling", restrictions=('*cliquet*'))
