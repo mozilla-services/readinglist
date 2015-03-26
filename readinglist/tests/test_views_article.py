@@ -137,6 +137,17 @@ class ReadArticleModificationTest(BaseWebTest, unittest.TestCase):
         record = self.refetch()
         self.assertEqual(record['read_position'], 0)
 
+    def test_read_position_is_reset_only_if_was_read(self):
+        # https://github.com/mozilla-services/readinglist/issues/213
+        self.app.patch_json(self.url,
+                            {'unread': True},
+                            headers=self.headers)
+        body = {'unread': True, 'read_position': 119}
+        resp = self.app.patch_json(self.url,
+                                   body,
+                                   headers=self.headers)
+        self.assertEqual(resp.json['read_position'], 119)
+
     def test_read_position_is_ignored_if_set_to_lower_value(self):
         self.app.patch_json(self.url,
                             {'read_position': 41},

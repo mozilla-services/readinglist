@@ -115,8 +115,8 @@ class Article(BaseResource):
         if new['resolved_url'] is None:
             new['resolved_url'] = new['url']
 
-        # Reset info when article is marked as unreadd
-        if new['unread']:
+        # Reset info when article is marked as unread
+        if new['unread'] and (old and not old['unread']):
             new['marked_read_on'] = None
             new['marked_read_by'] = None
             new['read_position'] = 0
