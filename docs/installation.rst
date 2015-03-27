@@ -154,10 +154,6 @@ Monitoring
     # Heka
     cliquet.logging_renderer = cliquet.logs.MozillaHekaRenderer
 
-    # Sentry
-    cliquet.sentry_url = http://public:secret@example.com/1
-    cliquet.sentry_projects = readinglist,requests
-
     # StatsD
     cliquet.statsd_url = udp://carbon.server:8125
 
@@ -174,6 +170,46 @@ prefix string:
 
     [formatter_heka]
     format = %(message)s
+
+
+If you want to plug sentry, you should also add:
+
+.. code-block:: ini
+
+    [loggers]
+    keys = root, sentry
+    
+    [handlers]
+    keys = console, sentry
+    
+    [formatters]
+    keys = generic
+    
+    [logger_root]
+    level = INFO
+    handlers = console, sentry
+    
+    [logger_sentry]
+    level = WARN
+    handlers = console
+    qualname = sentry.errors
+    propagate = 0
+    
+    [handler_console]
+    class = StreamHandler
+    args = (sys.stderr,)
+    level = NOTSET
+    formatter = generic
+    
+    [handler_sentry]
+    class = raven.handlers.logging.SentryHandler
+    args = ('http://public:secret@example.com/1',)
+    level = WARNING
+    formatter = generic
+    
+    [formatter_generic]
+    format = %(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s
+    datefmt = %H:%M:%S
 
 
 PostgreSQL setup
