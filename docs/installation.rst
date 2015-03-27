@@ -244,7 +244,7 @@ Running with uWsgi
 To run the application using uWsgi, an **app.wsgi** file is provided.
 This command can be used to run it::
 
-    uwsgi --ini config/readinglist.ini
+    uwsgi config/readinglist.ini
 
 uWsgi configuration can be tweaked in the ini file in the dedicated
 **[uwsgi]** section.
