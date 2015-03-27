@@ -25,7 +25,7 @@ ENTRY_POINTS = {
     ]}
 
 setup(name='readinglist',
-      version='1.4.0',
+      version='1.5.0.dev0',
       description='readinglist',
       long_description=README + "\n\n" + CHANGELOG,
       license='Apache License (2.0)',
