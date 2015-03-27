@@ -27,10 +27,11 @@ class BaseWebTest(FakeAuthentMixin):
     It setups the database before each test and delete it after.
     """
 
+    app = webtest.TestApp("config:config/readinglist.ini",
+                          relative_to='.')
+
     def __init__(self, *args, **kwargs):
         super(BaseWebTest, self).__init__(*args, **kwargs)
-        self.app = webtest.TestApp("config:config/readinglist.ini",
-                                   relative_to='.')
         self.app.RequestClass = get_request_class(prefix=API_VERSION)
         self.db = self.app.app.registry.storage
         self.headers.update({
