@@ -42,6 +42,34 @@ Run a particular type of action instead of random:
 their respective randomness.*)
 
 
+Performance profiling
+=====================
+
+Gather data from the application execution, using cProfile:
+
+::
+
+    .venv/bin/python -m cProfile -o myprofile .venv/bin/pserve config/readinglist.ini
+
+Run a load test (*for example*):
+
+::
+
+    SERVER_URL=http://localhost:8000 make bench -e
+
+
+Render execution graphs using GraphViz:
+
+::
+
+    sudo apt-get install graphviz
+
+::
+
+    pip install gprof2dot
+    gprof2dot -f pstats stats.prof | dot -Tpng -o output.png
+
+
 IRC channel
 ===========
 
