@@ -167,6 +167,7 @@ prefix string:
     class = StreamHandler
     args = (sys.stdout,)
     level = INFO
+    formater = heka
 
     [formatter_heka]
     format = %(message)s
@@ -197,9 +198,12 @@ If you want to plug sentry, you should also add:
     
     [handler_console]
     class = StreamHandler
-    args = (sys.stderr,)
-    level = NOTSET
-    formatter = generic
+    args = (sys.stdout,)
+    level = INFO
+    formater = heka
+
+    [formatter_heka]
+    format = %(message)s
     
     [handler_sentry]
     class = raven.handlers.logging.SentryHandler
