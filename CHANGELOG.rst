@@ -6,7 +6,30 @@ This document describes changes between each past release.
 1.3.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+**New features**
+
+- Smoke test of FxA authentication using Loads (#220)
+- Mesure calls on the authentication policy (mozilla-services/cliquet#167)
+- Force default pagination to 100 if not set in settings (#214)
+- Add documentation about setting up Sentry loggers (#227)
+
+**Breaking changes**
+
+- Prefix statsd metrics with the value of `cliquet.statsd_prefix` or
+  `cliquet.project_name` (mozilla-services/cliquet#162)
+- `http_scheme` setting has been replaced by `cliquet.http_scheme` and
+  `cliquet.http_host` was introduced (mozilla-services/cliquet#151, mozilla-services/cliquet#166)
+- URL in the hello view now has version prefix (mozilla-services/cliquet#165)
+
+**Bug fixes**
+
+- Fix changing read position (#213)
+- Fix some PostgreSQL connection bottlenecks (mozilla-services/cliquet#170)
+- Pull monitoring dependencies during install (#218)
+
+**Internal changes**
+
+- Update of PyFxA to get it working with gevent monkey patching (mozilla-services/cliquet#168)
 
 
 1.3.0 (2015-03-25)
