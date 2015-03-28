@@ -256,7 +256,7 @@ Here's an example:
     [uwsgi]
     wsgi-file = app.wsgi
     enable-threads = true
-    http = 127.0.0.1:8000
+    http-socket = 127.0.0.1:8000
     processes =  3
     master = true
     module = readinglist
