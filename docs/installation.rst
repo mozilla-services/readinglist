@@ -249,6 +249,23 @@ This command can be used to run it::
 uWsgi configuration can be tweaked in the ini file in the dedicated
 **[uwsgi]** section.
 
+Here's an example::
+
+    [uwsgi]
+    wsgi-file = app.wsgi
+    enable-threads = true
+    http = 127.0.0.1:8000
+    processes =  3
+    master = true
+    module = readinglist
+    harakiri = 30
+    uid = readinglist
+    gid = readinglist
+    virtualenv = .
+    lazy = true
+    lazy-apps = true 
+
+
 To use a different ini file, the ``READINGLIST_INI`` environment variable
 should be present with a path to it.
 
