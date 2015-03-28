@@ -249,7 +249,9 @@ This command can be used to run it::
 uWsgi configuration can be tweaked in the ini file in the dedicated
 **[uwsgi]** section.
 
-Here's an example::
+Here's an example:
+
+.. code-block :: ini
 
     [uwsgi]
     wsgi-file = app.wsgi
