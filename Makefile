@@ -30,6 +30,7 @@ $(PYTHON):
 	$(VENV)/bin/pip install --upgrade pip
 
 serve: install-dev
+	$(VENV)/bin/cliquet --ini $(SERVER_CONFIG) init
 	$(VENV)/bin/pserve $(SERVER_CONFIG) --reload
 
 tests-once: install-dev
