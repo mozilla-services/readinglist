@@ -124,7 +124,8 @@ class TestBasic(TestCase):
                                  headers={'Content-Type': 'application/json'})
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
-        for subresponse in resp.json()['responses']:
+        body = resp.json()
+        for subresponse in body['responses']:
             self.incr_counter(subresponse['status'])
 
     def create(self):
@@ -135,6 +136,7 @@ class TestBasic(TestCase):
             auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 201)
+        resp.json()
 
     def batch_create(self):
         data = {
@@ -158,6 +160,7 @@ class TestBasic(TestCase):
             auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
+        resp.json()
 
     def filter_sort(self):
         queries = [
@@ -173,12 +176,14 @@ class TestBasic(TestCase):
         resp = self.session.get(url, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
+        resp.json()
 
     def _patch(self, url, data, status=200):
         data = json.dumps(data)
         resp = self.session.patch(url, data, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, status)
+        resp.json()
 
     def update(self):
         data = {
@@ -256,6 +261,7 @@ class TestBasic(TestCase):
         resp = self.session.delete(self.random_url, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
+        resp.json()
 
     def batch_delete(self):
         # Get some random articles on which the batch will be applied
@@ -280,11 +286,13 @@ class TestBasic(TestCase):
         modified_url = self.api_url('articles?_since=%s' % last_modified)
         resp = self.session.get(modified_url, auth=self.auth)
         self.assertEqual(resp.status_code, 200)
+        resp.json()
 
     def list_archived(self):
         archived_url = self.api_url('articles?archived=true')
         resp = self.session.get(archived_url, auth=self.auth)
         self.assertEqual(resp.status_code, 200)
+        resp.json()
 
     def batch_count(self):
         data = {
@@ -306,6 +314,7 @@ class TestBasic(TestCase):
         deleted_url = self.api_url('articles?_since=%s&deleted=true' % modif)
         resp = self.session.get(deleted_url, auth=self.auth)
         self.assertEqual(resp.status_code, 200)
+        resp.json()
 
     def list_continuated_pagination(self):
         paginated_url = self.api_url('articles?_limit=20')
@@ -313,6 +322,7 @@ class TestBasic(TestCase):
         while paginated_url:
             resp = self.session.get(paginated_url, auth=self.auth)
             self.assertEqual(resp.status_code, 200)
+            resp.json()
             next_page = resp.headers.get("Next-Page")
             self.assertNotEqual(paginated_url, next_page)
             paginated_url = next_page
