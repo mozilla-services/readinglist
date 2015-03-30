@@ -18,6 +18,7 @@ This document describes changes between each past release.
 
 **Bug fixes**
 
+- Fix documentation about WSGI and Sentry
 - Fix connection pool no being shared between cache and storage (mozilla-services/cliquet#176)
 - Default connection pool size to 10 (instead of 50) (mozilla-services/cliquet#176)
 - Warn if PostgreSQL session has not UTC timezone (mozilla-services/cliquet#177)
