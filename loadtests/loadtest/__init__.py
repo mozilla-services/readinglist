@@ -7,6 +7,10 @@ from requests.auth import HTTPBasicAuth, AuthBase
 from loads.case import TestCase
 from konfig import Config
 
+import fxa.oauth
+from fxa.core import Client
+from fxa.tests.utils import TestEmailAccount
+
 ACTIONS_FREQUENCIES = [
     ('create', 20),
     ('batch_create', 50),
@@ -27,6 +31,8 @@ ACTIONS_FREQUENCIES = [
     ('batch_count', 50),
     ('list_continuated_pagination', 80),
 ]
+
+DEFAULT_FXA_URL = "https://api.accounts.firefox.com"
 
 
 def build_article():
@@ -57,17 +63,48 @@ class TestBasic(TestCase):
 
             This method is called as many times as number of users.
         """
+        self.random_user = uuid.uuid4().hex
         super(TestBasic, self).__init__(*args, **kwargs)
         self.conf = Config(self.config['config']).get_map('loads')
-        if self.conf.get('smoke', False):
-            self.random_user = "test@restmail.net"
-            self.auth = RawAuth("Bearer %s" % self.conf.get('token'))
+        self.smoke = self.conf.get('smoke', False)
+        if self.smoke:
+            self.auth = self._get_fxa_auth()
         else:
-            self.random_user = uuid.uuid4().hex
             self.auth = HTTPBasicAuth(self.random_user, 'secret')
 
         # Create at least some records for this user
         self.nb_initial_records = random.randint(3, 100)
+
+    def __del__(self):
+        if self.smoke:
+            self._acct.clear()
+            self._client.destroy_account(self.user_email, self.random_user)
+
+    def _get_fxa_auth(self):
+        self.user_email = "rl-%s@restmail.net" % self.random_user
+        self._acct = TestEmailAccount(self.user_email)
+        self._client = Client(self.conf.get('fxa-url', DEFAULT_FXA_URL))
+        # Use userid as the password.
+        self._fxa_session = self._client.create_account(
+            self.user_email,
+            self.random_user
+        )
+
+        # Verify the account using the code from email.
+        self._acct.fetch()
+        for m in self._acct.messages:
+            if "x-verify-code" in m["headers"]:
+                self._fxa_session.verify_email_code(
+                    m["headers"]["x-verify-code"])
+
+        # Once the account verified, trade the assertion with a bearer token.
+        client = fxa.oauth.Client(client_id=self.conf['fxa-client-id'])
+
+        assertion = self._fxa_session.get_identity_assertion('readinglist')
+        code = client.authorize_code(assertion, 'readinglist')
+        token = client.trade_code(code)
+
+        return RawAuth("Bearer %s" % token)
 
     def api_url(self, path):
         return "{0}/v1/{1}".format(self.server_url, path)

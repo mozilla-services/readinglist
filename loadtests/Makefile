@@ -18,7 +18,8 @@ $(PYTHON):
 
 # Build virtualenv, to ensure we have all the dependencies.
 .env.install: $(PYTHON)
-	$(INSTALL) git+git://github.com/mozilla-services/loads.git  >> loadtest.log && \
+	$(INSTALL) git+git://github.com/mozilla-services/loads.git >> loadtest.log && \
+	$(INSTALL) PyFxA >> loadtest.log && \
 	rm loadtest.log || cat loadtest.log
 	touch $@
 
