@@ -30,7 +30,7 @@ $(PYTHON):
 	$(VENV)/bin/pip install --upgrade pip
 
 serve: install-dev
-	$(VENV)/bin/pserve $(SERVER_CONFIG) --reload
+	$(VENV)/bin/uwsgi --ini $(SERVER_CONFIG)
 
 tests-once: install-dev
 	$(VENV)/bin/nosetests -s --with-mocha-reporter --with-coverage --cover-package=readinglist
