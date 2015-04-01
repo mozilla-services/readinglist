@@ -5,7 +5,7 @@ import uuid
 
 from requests.auth import HTTPBasicAuth, AuthBase
 from loads.case import TestCase
-from konfig import Config
+# from konfig import Config
 
 ACTIONS_FREQUENCIES = [
     ('create', 20),
@@ -58,13 +58,13 @@ class TestBasic(TestCase):
             This method is called as many times as number of users.
         """
         super(TestBasic, self).__init__(*args, **kwargs)
-        self.conf = Config(self.config['config']).get_map('loads')
-        if self.conf.get('smoke', False):
-            self.random_user = "test@restmail.net"
-            self.auth = RawAuth("Bearer %s" % self.conf.get('token'))
-        else:
-            self.random_user = uuid.uuid4().hex
-            self.auth = HTTPBasicAuth(self.random_user, 'secret')
+        #self.conf = Config(self.config['config']).get_map('loads')
+        #if self.conf.get('smoke', False):
+        #    self.random_user = "test@restmail.net"
+        #    self.auth = RawAuth("Bearer %s" % self.conf.get('token'))
+        #else:
+        self.random_user = uuid.uuid4().hex
+        self.auth = HTTPBasicAuth(self.random_user, 'secret')
 
         # Create at least some records for this user
         self.nb_initial_records = random.randint(3, 100)
