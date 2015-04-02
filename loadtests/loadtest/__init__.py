@@ -5,7 +5,7 @@ import uuid
 
 from requests.auth import HTTPBasicAuth, AuthBase
 from loads.case import TestCase
-# from konfig import Config
+from konfig import Config
 
 ACTIONS_FREQUENCIES = [
     ('create', 20),
@@ -58,16 +58,28 @@ class TestBasic(TestCase):
             This method is called as many times as number of users.
         """
         super(TestBasic, self).__init__(*args, **kwargs)
-        #self.conf = Config(self.config['config']).get_map('loads')
-        #if self.conf.get('smoke', False):
-        #    self.random_user = "test@restmail.net"
-        #    self.auth = RawAuth("Bearer %s" % self.conf.get('token'))
-        #else:
-        self.random_user = uuid.uuid4().hex
-        self.auth = HTTPBasicAuth(self.random_user, 'secret')
+
+        self.conf = self._get_configuration()
+
+        if self.conf.get('smoke', False):
+            self.random_user = "test@restmail.net"
+            self.auth = RawAuth("Bearer %s" % self.conf.get('token'))
+        else:
+            self.random_user = uuid.uuid4().hex
+            self.auth = HTTPBasicAuth(self.random_user, 'secret')
 
         # Create at least some records for this user
         self.nb_initial_records = random.randint(3, 100)
+
+    def _get_configuration(self):
+        # Loads is removing the extra information contained in the ini files,
+        # so we need to parse it again.
+        config_file = self.config['config']
+        # When copying the configuration files, we lose the config/ prefix so,
+        # try to read from this folder in case the file doesn't exist.
+        if not os.path.isfile(config_file):
+            config_file = os.path.basename(config_file)
+        return Config(config_file).get_map('loads')
 
     def api_url(self, path):
         return "{0}/v1/{1}".format(self.server_url, path)
