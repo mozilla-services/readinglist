@@ -79,6 +79,9 @@ class TestBasic(TestCase):
         # try to read from this folder in case the file doesn't exist.
         if not os.path.isfile(config_file):
             config_file = os.path.basename(config_file)
+            if not os.path.isfile(config_file):
+                msg = 'Unable to locate the configuration file, aborting.'
+                raise LookupError(msg)
         return Config(config_file).get_map('loads')
 
     def api_url(self, path):
