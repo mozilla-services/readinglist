@@ -34,6 +34,7 @@ class BaseWebTest(FakeAuthentMixin):
         super(BaseWebTest, self).__init__(*args, **kwargs)
         self.app.RequestClass = get_request_class(prefix=API_VERSION)
         self.db = self.app.app.registry.storage
+        self.db.initialize_schema()
         self.headers.update({
             'Content-Type': 'application/json',
         })

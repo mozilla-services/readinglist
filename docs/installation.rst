@@ -229,7 +229,11 @@ user.
     CREATE DATABASE
 
 
-On the first app run, the tables and objects are created.
+The tables needs to be created with the `cliquet` tool.
+
+.. code-block :: bash
+
+    $ cliquet --ini config/readinglist.ini init
 
 :note:
 
