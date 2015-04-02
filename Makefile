@@ -44,6 +44,7 @@ clean:
 	find . -name '__pycache__' -type d -exec rm -fr {} \;
 
 loadtest-check: install
+	$(VENV)/bin/cliquet --ini loadtests/server.ini init > readinglist.log &&\
 	$(VENV)/bin/pserve loadtests/server.ini > readinglist.log & PID=$$! && \
 	  rm readinglist.log || cat readinglist.log; \
 	  sleep 1 && cd loadtests && \
