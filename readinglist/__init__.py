@@ -40,4 +40,4 @@ def main(global_config, **settings):
 
     config.scan("readinglist.views")
     app = config.make_wsgi_app()
-    return cliquet.wrap_application(app, settings)
+    return cliquet.install_middlewares(app, settings)
