@@ -79,9 +79,10 @@ class TestBasic(TestCase):
 
             This method is called as many times as number of hits.
         """
-        while self.nb_initial_records > 0:
+        nb_initial_records = self.nb_initial_records
+        while nb_initial_records > 0:
             self.create()
-            self.nb_initial_records -= 1
+            nb_initial_records -= 1
 
         resp = self.session.get(self.api_url('articles'), auth=self.auth)
         records = resp.json()['items']
