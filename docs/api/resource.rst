@@ -281,8 +281,8 @@ redirections.
     Deleted records are not taken into account for field unicity.
 
 
-When a client pushes an new article which url or resolved url already
-exists in the database,  the automatic conflict resolver will simply keep
+When a client pushes an new article which ``url`` or ``resolved_url`` already
+exists in the database, the automatic conflict resolver will simply keep
 the original one with all its values (title, summary etc.) and return
 to the client its information. No duplicate is created.
 
@@ -290,12 +290,13 @@ Updating the title, excerpt or word_count of an existing article
 won't raise any conflict: the last call wins.
 
 For both updates and creation, you can bypass the automatic
-conflict resolution by adding a **If-Unmodified-Since** in your requests.
+conflict resolution by adding a ``If-Unmodified-Since`` in your requests
+headers.
 
-In that case, you will get a 412 error if you try to create
-an article with an ``url`` or ``resolved_url`` that already exists
-in the database, or if you try to update an article that has been updated
-by another client in the interim.
+In that case, you will get a 412 error if :
+- you are trying to POST a collection and something was changed in the database
+  in the interim.
+- you are trying to POST an article that was changed in the interim.
 
 Notice that if you add in the same batch two articles with conflicting
 urls, you will get the same behavior as described above, as the batch
