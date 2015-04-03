@@ -13,7 +13,7 @@ INSTALL = ARCHFLAGS=$(ARCHFLAGS) $(VENV)/bin/pip install
 .PHONY: install clean bench megabench
 
 $(PYTHON):
-	virtualenv $(VENV)
+	$(VIRTUALENV) $(VENV)
 
 
 # Build virtualenv, to ensure we have all the dependencies.
