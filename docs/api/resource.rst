@@ -265,21 +265,42 @@ an error response is returned with status ``400``.
 Conflicts
 ---------
 
-Articles URL are unique per user (both ``url`` and ``resolved_url``).
+The Reading List Server provides an automatic conflict resolution
+algorithm for articles.
+
+An article is uniquely defined in the database by its ``url`` and
+``resolved_url`` fields. The ``resolved_url`` field can be different
+or the ``url`` value when the client has to follow one or several
+redirections.
 
 :note:
-    A ``url`` always resolves towards the same URL. If ``url`` is not unique, then
-    its ``resolved_url`` won't either.
-
-:note:
-    Unicity on URLs is determined the full URL, including location hash.
+    Unicity on URLs is determined by the full URL, including location hash.
     (e.g. http://news.com/day-1.html#paragraph1, http://spa.com/#/content/3)
 
 :note:
     Deleted records are not taken into account for field unicity.
 
-If the a conflict occurs, an error response is returned with status ``409``.
-A ``existing`` attribute in the response gives the offending record.
+
+When a client pushes an new article which url or resolved url already
+exists in the database,  the automatic conflict resolver will simply keep
+the original one with all its values (title, summary etc.) and return
+to the client its information. No duplicate is created.
+
+Updating the title, excerpt or word_count of an existing article
+won't raise any conflict: the last call wins.
+
+For both updates and creation, you can bypass the automatic
+conflict resolution by adding a **If-Unmodified-Since** in your requests.
+
+In that case, you will get a 412 error if you try to create
+an article with an ``url`` or ``resolved_url`` that already exists
+in the database, or if you try to update an article that has been updated
+by another client in the interim.
+
+Notice that if you add in the same batch two articles with conflicting
+urls, you will get the same behavior as described above, as the batch
+queries are processed in a sequential order.
+
 
 Example
 -------
@@ -559,8 +580,8 @@ For example, using the default behavior :
     [...]
 
     {
-        "marked_read_by": "Ipad", 
-        "marked_read_on": "1425316211577", 
+        "marked_read_by": "Ipad",
+        "marked_read_on": "1425316211577",
         "unread": "False"
     }
 
@@ -569,23 +590,23 @@ For example, using the default behavior :
     [...]
 
     {
-        "added_by": "Natim", 
-        "added_on": 1425383479321, 
-        "archived": false, 
-        "excerpt": "", 
-        "favorite": false, 
-        "id": "8412b7d7da40467e9afbad8b6f15c20f", 
-        "is_article": true, 
-        "last_modified": 1425383532546, 
-        "marked_read_by": "Ipad", 
-        "marked_read_on": 1425316211577, 
-        "read_position": 0, 
-        "resolved_title": "What’s Hawk authentication and how to use it?", 
-        "resolved_url": "https://blog.mozilla.org/services/2015/02/05/whats-hawk-and-how-to-use-it/", 
-        "stored_on": 1425383479321, 
-        "title": "The Hawk Authorization protocol", 
-        "unread": false, 
-        "url": "https://blog.mozilla.org/services/2015/02/05/whats-hawk-and-how-to-use-it/", 
+        "added_by": "Natim",
+        "added_on": 1425383479321,
+        "archived": false,
+        "excerpt": "",
+        "favorite": false,
+        "id": "8412b7d7da40467e9afbad8b6f15c20f",
+        "is_article": true,
+        "last_modified": 1425383532546,
+        "marked_read_by": "Ipad",
+        "marked_read_on": 1425316211577,
+        "read_position": 0,
+        "resolved_title": "What’s Hawk authentication and how to use it?",
+        "resolved_url": "https://blog.mozilla.org/services/2015/02/05/whats-hawk-and-how-to-use-it/",
+        "stored_on": 1425383479321,
+        "title": "The Hawk Authorization protocol",
+        "unread": false,
+        "url": "https://blog.mozilla.org/services/2015/02/05/whats-hawk-and-how-to-use-it/",
         "word_count": null
     }
 
@@ -609,8 +630,8 @@ Using ``Response-Behavior: light``
     [...]
 
     {
-        "marked_read_by": "Ipad", 
-        "marked_read_on": "1425316211577", 
+        "marked_read_by": "Ipad",
+        "marked_read_on": "1425316211577",
         "unread": "False"
     }
 
@@ -619,8 +640,8 @@ Using ``Response-Behavior: light``
     Content-Type: application/json; charset=UTF-8
 
     {
-        "marked_read_by": "Ipad", 
-        "marked_read_on": 1425316211577, 
+        "marked_read_by": "Ipad",
+        "marked_read_on": 1425316211577,
         "unread": false
     }
 
@@ -643,8 +664,8 @@ Using ``Response-Behavior: diff``
     [...]
 
     {
-        "marked_read_by": "Ipad", 
-        "marked_read_on": "1425316211577", 
+        "marked_read_by": "Ipad",
+        "marked_read_on": "1425316211577",
         "unread": "False"
     }
 
