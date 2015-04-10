@@ -3,10 +3,37 @@ Changelog
 
 This document describes changes between each past release.
 
-1.5.1 (unreleased)
+1.6.0 (2015-04-10)
 ------------------
 
-- Nothing changed yet.
+**Deployment instructions**
+
+Some changes were introduced in database schema. Run schema migration command
+before starting the application:
+
+::
+
+    cliquet --ini production.ini migrate
+
+**New features**
+
+- Add more info in heartbeat (fixes #229)
+- Clarify conflict docs (#244)
+- Clarify data model docs (#247)
+- Add PostgreSQL schema migration system (mozilla-services/cliquet#139)
+
+See `every features brought by Cliquet 1.7 <https://github.com/mozilla-services/cliquet/releases/tag/1.7.0>`_
+
+**Bug fixes**
+
+- Fix login prompt when Basic Auth is disabled (#237)
+- Fix random IndexError in load tests (#238)
+- Fix smoke tests configuration reading
+- Fix Heka logging format of objects (#199)
+- Fix performance of record insertion using ordered index (mozilla-services/cliquet#138)
+- Fix 405 errors not JSON formatted (mozilla-services/cliquet#88)
+
+See `every bug fixes brought by Cliquet 1.7 <https://github.com/mozilla-services/cliquet/releases/tag/1.7.0>`_
 
 
 1.5.0 (2015-03-30)

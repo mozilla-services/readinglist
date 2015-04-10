@@ -173,29 +173,29 @@ prefix string:
     format = %(message)s
 
 
-If you want to plug sentry, you should also add:
+Adapt the logging configuration in order to plug Sentry:
 
 .. code-block:: ini
 
     [loggers]
     keys = root, sentry
-    
+
     [handlers]
     keys = console, sentry
-    
+
     [formatters]
     keys = generic
-    
+
     [logger_root]
     level = INFO
     handlers = console, sentry
-    
+
     [logger_sentry]
     level = WARN
     handlers = console
     qualname = sentry.errors
     propagate = 0
-    
+
     [handler_console]
     class = StreamHandler
     args = (sys.stdout,)
@@ -204,13 +204,13 @@ If you want to plug sentry, you should also add:
 
     [formatter_heka]
     format = %(message)s
-    
+
     [handler_sentry]
     class = raven.handlers.logging.SentryHandler
     args = ('http://public:secret@example.com/1',)
     level = WARNING
     formatter = generic
-    
+
     [formatter_generic]
     format = %(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s
     datefmt = %H:%M:%S
@@ -233,7 +233,7 @@ The tables needs to be created with the `cliquet` tool.
 
 .. code-block :: bash
 
-    $ cliquet --ini config/readinglist.ini init
+    $ cliquet --ini config/readinglist.ini migrate
 
 :note:
 
@@ -269,7 +269,7 @@ Here's an example:
     gid = readinglist
     virtualenv = .
     lazy = true
-    lazy-apps = true 
+    lazy-apps = true
 
 
 To use a different ini file, the ``READINGLIST_INI`` environment variable

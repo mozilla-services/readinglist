@@ -30,7 +30,7 @@ $(PYTHON):
 	$(VENV)/bin/pip install --upgrade pip
 
 serve: install-dev
-	$(VENV)/bin/cliquet --ini $(SERVER_CONFIG) init
+	$(VENV)/bin/cliquet --ini $(SERVER_CONFIG) migrate
 	$(VENV)/bin/pserve $(SERVER_CONFIG) --reload
 
 tests-once: install-dev
@@ -44,7 +44,7 @@ clean:
 	find . -name '__pycache__' -type d -exec rm -fr {} \;
 
 loadtest-check: install
-	$(VENV)/bin/cliquet --ini loadtests/server.ini init > readinglist.log &&\
+	$(VENV)/bin/cliquet --ini loadtests/server.ini migrate > readinglist.log &&\
 	$(VENV)/bin/pserve loadtests/server.ini > readinglist.log & PID=$$! && \
 	  rm readinglist.log || cat readinglist.log; \
 	  sleep 1 && cd loadtests && \
