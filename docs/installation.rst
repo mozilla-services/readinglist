@@ -233,7 +233,7 @@ The tables needs to be created with the `cliquet` tool.
 
 .. code-block :: bash
 
-    $ cliquet --ini config/readinglist.ini init
+    $ cliquet --ini config/readinglist.ini migrate
 
 :note:
 
