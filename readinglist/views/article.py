@@ -23,7 +23,7 @@ class DeviceName(SchemaNode):
 class ArticleTitle(SchemaNode):
     """String representing the title of an article."""
     schema_type = String
-    validator = colander.Length(min=1, max=TITLE_MAX_LENGTH)
+    validator = colander.Length(min=0, max=TITLE_MAX_LENGTH)
 
     def preparer(self, appstruct):
         if appstruct:
@@ -38,7 +38,7 @@ class ArticleSchema(ResourceSchema):
 
     url = URL()
     preview = URL(missing=None)
-    title = ArticleTitle()
+    title = ArticleTitle(missing=None)
     added_by = DeviceName()
     added_on = TimeStamp()
     stored_on = TimeStamp()

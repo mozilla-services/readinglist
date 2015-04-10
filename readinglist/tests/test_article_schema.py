@@ -65,11 +65,10 @@ class ArticleSchemaTest(unittest.TestCase):
                           self.schema.deserialize,
                           self.record)
 
-    def test_title_is_required(self):
+    def test_title_is_not_required(self):
         self.record.pop('title')
-        self.assertRaises(colander.Invalid,
-                          self.schema.deserialize,
-                          self.record)
+        deserialized = self.schema.deserialize(self.record)
+        self.assertEqual(deserialized['title'], None)
 
     def test_title_is_stripped(self):
         self.record['title'] = '  Nous Sommes Charlie  '
@@ -95,17 +94,15 @@ class ArticleSchemaTest(unittest.TestCase):
         deserialized = self.schema.deserialize(self.record)
         self.assertEqual(deserialized['resolved_title'], 'Nous Sommes Charlie')
 
-    def test_title_must_be_at_least_one_character(self):
+    def test_title_is_set_to_null_if_empty(self):
         self.record['title'] = ''
-        self.assertRaises(colander.Invalid,
-                          self.schema.deserialize,
-                          self.record)
+        deserialized = self.schema.deserialize(self.record)
+        self.assertEqual(deserialized['title'], None)
 
-    def test_resolved_title_must_be_at_least_one_character(self):
+    def test_resolved_title_can_be_empty(self):
         self.record['resolved_title'] = ' '
-        self.assertRaises(colander.Invalid,
-                          self.schema.deserialize,
-                          self.record)
+        deserialized = self.schema.deserialize(self.record)
+        self.assertEqual(deserialized['resolved_title'], '')
 
     def test_added_by_is_required(self):
         self.record.pop('added_by')
