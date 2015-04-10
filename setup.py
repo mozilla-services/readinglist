@@ -16,7 +16,6 @@ REQUIREMENTS = [
     'six>=1.9.0',
     'waitress>=0.8.9',
     'cliquet[postgresql,monitoring]>=1.6.0',
-    'raven'
 ]
 
 ENTRY_POINTS = {
