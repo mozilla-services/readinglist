@@ -254,18 +254,19 @@ to the client its information. No duplicate is created.
 Updating the title, excerpt or word_count of an existing article
 won't raise any conflict: the last call wins.
 
-For both updates and creation, you can bypass the automatic
-conflict resolution by adding a ``If-Unmodified-Since`` in your requests
-headers.
+For both updates and creation, the automatic conflict resolution can be
+bypassed with a ``If-Unmodified-Since`` in requests headers.
 
-In that case, you will get a 412 error if :
-- you are trying to POST a collection and something was changed in the database
+In that case, a ``412 Precondition failed`` error is returned:
+- for a ``POST`` on the collection if something was changed in the database
   in the interim.
-- you are trying to POST an article that was changed in the interim.
+- for a ``PATCH`` on an article that was changed in the interim.
 
-Notice that if you add in the same batch two articles with conflicting
-URLs, you will get the same behavior as described above, as the batch
-queries are processed in a sequential order.
+:note:
+
+    If two articles with conflicting URLs are posted in the same *batch*, the same
+    behavior as described above will apply, as the batch queries are processed
+    in a sequential order.
 
 
 Example
