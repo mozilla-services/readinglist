@@ -1,4 +1,3 @@
-import mock
 from .support import BaseWebTest, unittest
 
 
