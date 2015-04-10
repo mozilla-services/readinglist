@@ -235,7 +235,7 @@ algorithm for articles.
 
 An article is uniquely defined in the database by its ``url`` and
 ``resolved_url`` fields. The ``resolved_url`` field can be different
-or the ``url`` value when the client has to follow one or several
+from the ``url`` value when the client has to follow one or several
 redirections.
 
 :note:
@@ -246,7 +246,7 @@ redirections.
     Deleted records are not taken into account for field unicity.
 
 
-When a client pushes an new article which ``url`` or ``resolved_url`` already
+When a client pushes a new article which ``url`` or ``resolved_url`` already
 exists in the database, the automatic conflict resolver will simply keep
 the original one with all its values (title, summary etc.) and return
 to the client its information. No duplicate is created.
@@ -264,7 +264,7 @@ In that case, you will get a 412 error if :
 - you are trying to POST an article that was changed in the interim.
 
 Notice that if you add in the same batch two articles with conflicting
-urls, you will get the same behavior as described above, as the batch
+URLs, you will get the same behavior as described above, as the batch
 queries are processed in a sequential order.
 
 
