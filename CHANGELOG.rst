@@ -6,7 +6,30 @@ This document describes changes between each past release.
 1.5.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+**Deployment instructions**
+
+Some changes were introduced in database schema. Run schema migration command
+before starting the application:
+
+::
+
+    cliquet --ini production.ini migrate
+
+**New features**
+
+- Add more info in heartbeat (fixes #229)
+- Clarify conflict docs (#244)
+- Clarify data model docs (#247)
+
+See `features brought by Cliquet 1.7 <https://github.com/mozilla-services/cliquet/releases/tag/1.7.0>`_
+
+**Bug fixes**
+
+- Fix random IndexError in load tests (#238)
+- Fix login prompt when Basic Auth is disabled (#237)
+- Fix smoke tests configuration reading
+
+See `bug fixes brought by Cliquet 1.7 <https://github.com/mozilla-services/cliquet/releases/tag/1.7.0>`_
 
 
 1.5.0 (2015-03-30)
