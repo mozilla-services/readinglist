@@ -217,43 +217,8 @@ The POST response body is the newly created record, if all posted values are val
 If the request header ``If-Unmodified-Since`` is provided, and if the record has
 changed meanwhile, a ``412 Precondition failed`` error is returned.
 
-**Optional values**
-
-- ``added_on``
-- ``excerpt``
-- ``favorite``
-- ``unread``
-- ``archived``
-- ``is_article``
-- ``resolved_url``
-- ``resolved_title``
-
-**Auto default values**
-
-For v1, the server will assign default values to the following attributes:
-
-- ``id``: *uuid*
-- ``resolved_url``: ``url``
-- ``resolved_title``: ``title``
-- ``excerpt``: empty text
-- ``archived``: false
-- ``favorite``: false
-- ``unread``: true
-- ``read_position``: 0
-- ``is_article``: true
-- ``last_modified``: current server timestamp
-- ``stored_on``: current server timestamp
-- ``marked_read_by``: null
-- ``marked_read_on``: null
-- ``word_count``: null
-
-For v2, the server will fetch the content, and assign the following attributes with actual values:
-
-- ``resolved_url``: the final URL obtained after all redirections resolved
-- ``resolved_title``: The fetched page's title (content of <title>)
-- ``excerpt``: The first 200 words of the article
-- ``word_count``: Total word count of the article
-
+To get a list of mandatory, optional and default values, refer to the
+:ref:`data-model`.
 
 Validation
 ----------
