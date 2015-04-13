@@ -23,14 +23,14 @@ class DeviceName(SchemaNode):
 class ArticleTitle(SchemaNode):
     """String representing the title of an article."""
     schema_type = String
-    validator = colander.Length(min=0, max=TITLE_MAX_LENGTH)
+    validator = colander.Length(max=TITLE_MAX_LENGTH)
 
     def preparer(self, appstruct):
         if appstruct:
             # Strip then truncate the title to TITLE_MAX_LENGTH
-            return strip_whitespace(appstruct)[:TITLE_MAX_LENGTH]
-        else:
-            return appstruct
+            appstruct = strip_whitespace(appstruct)[:TITLE_MAX_LENGTH]
+
+        return appstruct or colander.null
 
 
 class ArticleSchema(ResourceSchema):
