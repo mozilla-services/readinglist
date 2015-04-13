@@ -32,6 +32,17 @@ class IntegrationTest(BaseWebTest, unittest.TestCase):
         self.assertEqual(len(resp.json['items']), 100)
 
 
+class ArticleCreationTest(BaseWebTest, unittest.TestCase):
+    def test_stored_on_is_forced_even_if_specified(self):
+        body = MINIMALIST_ARTICLE.copy()
+        for value in ('', 123, None):
+            body['stored_on'] = value
+            resp = self.app.post_json('/articles',
+                                      body,
+                                      headers=self.headers)
+            self.assertNotEqual(resp.json['stored_on'], value)
+
+
 class ArticleModificationTest(BaseWebTest, unittest.TestCase):
     def setUp(self):
         super(ArticleModificationTest, self).setUp()
@@ -76,6 +87,13 @@ class ArticleModificationTest(BaseWebTest, unittest.TestCase):
                             body,
                             headers=self.headers,
                             status=400)
+
+    def test_stored_on_is_preserved_after_modification(self):
+        body = {'stored_on': self.before['stored_on']}
+        resp = self.app.patch_json(self.url,
+                                   body,
+                                   headers=self.headers)
+        self.assertEqual(resp.json['stored_on'], self.before['stored_on'])
 
     def test_cannot_mark_as_read_without_by_and_on(self):
         body = {'unread': False}
