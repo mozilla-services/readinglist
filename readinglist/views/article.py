@@ -108,6 +108,9 @@ class Article(BaseResource):
             if not old['unread']:
                 new['marked_read_on'] = old['marked_read_on']
                 new['marked_read_by'] = old['marked_read_by']
+        else:
+            # Date of creation is set
+            new['stored_on'] = TimeStamp().deserialize()
 
         # In this first version, do not resolve url and title.
         if new['resolved_title'] is None:
