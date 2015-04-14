@@ -34,7 +34,6 @@ class ArticleSchemaTest(unittest.TestCase):
     def test_record_validation_computed_values(self):
         self.assertIsNotNone(self.deserialized.get('stored_on'))
         self.assertIsNotNone(self.deserialized.get('added_on'))
-        self.assertIsNotNone(self.deserialized.get('last_modified'))
 
     def test_url_is_required(self):
         self.record.pop('url')
