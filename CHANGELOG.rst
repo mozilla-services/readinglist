@@ -3,13 +3,16 @@ Changelog
 
 This document describes changes between each past release.
 
-1.6.1 (2015-04-14)
+1.7.0 (2015-04-15)
 ------------------
 
-**Bug fixes**
+**New feature**
 
 - Article ``title`` now allowed to be empty or null (#250 and #253)
   (Original https://bugzilla.mozilla.org/show_bug.cgi?id=1152915)
+
+**Bug fixes**
+
 - Fix ``stored_on`` not being forced on creation (fixes #215)
 
 **Internal changes**
