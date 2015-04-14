@@ -20,17 +20,37 @@ class DeviceName(SchemaNode):
         return strip_whitespace(appstruct)
 
 
+class BlankString(String):
+    def deserialize(self, node, cstruct):
+        """Override basic Colander String behaviour to deserialize empty
+        strings as such.
+
+        See https://github.com/Pylons/colander/issues/214.
+        """
+        if cstruct == '':
+            return ''
+        if cstruct is None:
+            return None
+        return super(BlankString, self).deserialize(node, cstruct)
+
+
+class NullOrLength(colander.Length):
+    def __call__(self, node, value):
+        if value not in (colander.null, None):
+            super(NullOrLength, self).__call__(node, value)
+
+
 class ArticleTitle(SchemaNode):
     """String representing the title of an article."""
-    schema_type = String
-    validator = colander.Length(max=TITLE_MAX_LENGTH)
+    schema_type = BlankString
+    validator = NullOrLength(max=TITLE_MAX_LENGTH)
 
     def preparer(self, appstruct):
         if appstruct:
             # Strip then truncate the title to TITLE_MAX_LENGTH
             appstruct = strip_whitespace(appstruct)[:TITLE_MAX_LENGTH]
 
-        return appstruct or colander.null
+        return appstruct
 
 
 class ArticleSchema(ResourceSchema):
@@ -38,7 +58,7 @@ class ArticleSchema(ResourceSchema):
 
     url = URL()
     preview = URL(missing=None)
-    title = ArticleTitle(missing=None)
+    title = ArticleTitle()
     added_by = DeviceName()
     added_on = TimeStamp()
     stored_on = TimeStamp()
