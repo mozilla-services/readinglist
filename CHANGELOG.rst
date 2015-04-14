@@ -6,7 +6,15 @@ This document describes changes between each past release.
 1.6.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+**Bug fixes**
+
+- Article ``title`` now allowed to be empty or null (#250 and #253)
+  (Original https://bugzilla.mozilla.org/show_bug.cgi?id=1152915)
+- Fix ``stored_on`` not being forced on creation (fixes #215)
+
+**Internal changes**
+
+- Enabled Coveralls with failing tests if coverage less than 100%
 
 
 1.6.0 (2015-04-10)
