@@ -1,12 +1,12 @@
-from cornice import resource
 import colander
 from colander import SchemaNode, String
-from pyramid import httpexceptions
 
 from cliquet import errors
-from cliquet.resource import crud, BaseResource, ResourceSchema
-from cliquet.utils import strip_whitespace, native_value
+from cliquet.resource import register, BaseResource
+from cliquet.schema import ResourceSchema
+from cliquet.utils import strip_whitespace
 from cliquet.schema import URL, TimeStamp
+
 
 TITLE_MAX_LENGTH = 1024
 
@@ -84,15 +84,9 @@ class ArticleSchema(ResourceSchema):
             ResourceSchema.Options.unique_fields
 
 
-@crud()
+@register(record_methods=('GET', 'PATCH', 'DELETE'))
 class Article(BaseResource):
     mapping = ArticleSchema()
-
-    def put(self):
-        response = errors.http_error(
-            httpexceptions.HTTPMethodNotAllowed(),
-            errno=errors.ERRORS.METHOD_NOT_ALLOWED)
-        raise response
 
     def process_record(self, new, old=None):
         """Operate changes on submitted record.
@@ -145,28 +139,3 @@ class Article(BaseResource):
             new['read_position'] = 0
 
         return new
-
-    @resource.view(permission='readwrite')
-    def collection_post(self, *args, **kwargs):
-        try:
-            return super(Article, self).collection_post(*args, **kwargs)
-        except httpexceptions.HTTPConflict as e:
-            self.request.response.status_code = 200
-            return e.existing
-
-    def update_record(self, old, new, changes=None):
-        """Update existing record."""
-        new_record = super(Article, self).update_record(old, new, changes)
-        body_behavior = self.request.headers.get(
-            'Response-Behavior', 'full').lower()
-
-        changed = [k for k in changes.keys()
-                   if old.get(k) != new.get(k)]
-
-        if body_behavior == 'full':
-            return new_record
-        elif body_behavior == 'light':
-            return {k: new_record[k] for k in changed}
-        elif body_behavior == 'diff':
-            return {k: new_record[k] for k in changed
-                    if native_value(changes.get(k)) != new_record.get(k)}

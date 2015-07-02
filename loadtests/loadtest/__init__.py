@@ -100,7 +100,7 @@ class TestBasic(TestCase):
             nb_initial_records -= 1
 
         resp = self.session.get(self.api_url('articles'), auth=self.auth)
-        records = resp.json()['items']
+        records = resp.json()['data']
 
         # Pick a random record
         self.random_record = random.choice(records)
@@ -133,9 +133,9 @@ class TestBasic(TestCase):
         else:
             self.test_all()
 
-    def _run_batch(self, data):
+    def _run_batch(self, body):
         resp = self.session.post(self.api_url('batch'),
-                                 data=json.dumps(data),
+                                 data=json.dumps(body),
                                  auth=self.auth,
                                  headers={'Content-Type': 'application/json'})
         self.incr_counter(resp.status_code)
@@ -147,8 +147,9 @@ class TestBasic(TestCase):
         data = build_article()
         resp = self.session.post(
             self.api_url('articles'),
-            data,
-            auth=self.auth)
+            data=json.dumps({'data': data}),
+            auth=self.auth,
+            headers={'Content-Type': 'application/json'})
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 201)
 
@@ -160,7 +161,7 @@ class TestBasic(TestCase):
             }
         }
         for i in range(25):
-            request = {"body": build_article()}
+            request = {"body": {'data': build_article()}}
             data.setdefault("requests", []).append(request)
 
         self._run_batch(data)
@@ -170,8 +171,9 @@ class TestBasic(TestCase):
         data.pop('id')
         resp = self.session.post(
             self.api_url('articles'),
-            data,
-            auth=self.auth)
+            data=json.dumps({'data': data}),
+            auth=self.auth,
+            headers={'Content-Type': 'application/json'})
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, 200)
 
@@ -191,8 +193,8 @@ class TestBasic(TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def _patch(self, url, data, status=200):
-        data = json.dumps(data)
-        resp = self.session.patch(url, data, auth=self.auth)
+        body = json.dumps({'data': data})
+        resp = self.session.patch(url, body, auth=self.auth)
         self.incr_counter(resp.status_code)
         self.assertEqual(resp.status_code, status)
 
@@ -215,7 +217,7 @@ class TestBasic(TestCase):
         # Get some random articles on which the batch will be applied
         url = self.api_url('articles?_limit=5&_sort=title')
         resp = self.session.get(url, auth=self.auth)
-        articles = resp.json()['items']
+        articles = resp.json()['data']
         urls = ['/articles/{}'.format(a['id']) for a in articles]
 
         data = {
@@ -277,7 +279,7 @@ class TestBasic(TestCase):
         # Get some random articles on which the batch will be applied
         url = self.api_url('articles?_limit=5&_sort=title')
         resp = self.session.get(url, auth=self.auth)
-        articles = resp.json()['items']
+        articles = resp.json()['data']
         urls = ['/articles/{}'.format(a['id']) for a in articles]
 
         data = {

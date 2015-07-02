@@ -6,6 +6,7 @@ from pyramid.settings import asbool
 
 import cliquet
 
+
 # Module version, as defined in PEP-0396.
 __version__ = pkg_resources.get_distribution(__package__).version
 
@@ -14,6 +15,11 @@ API_VERSION = 'v%s' % __version__.split('.')[0]
 
 # Main readinglist logger
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_SETTINGS = {
+    'cliquet.paginate_by': 100
+}
 
 
 def patch_gevent(settings):
@@ -31,12 +37,8 @@ def main(global_config, **settings):
 
     patch_gevent(settings)
 
-    cliquet.initialize(config, version=__version__)
-
-    # Force default pagination (if empty, None or 0)
-    paginate_by = config.registry.settings.get('cliquet.paginate_by')
-    if not paginate_by:
-        config.registry.settings['cliquet.paginate_by'] = 100
+    cliquet.initialize(config, version=__version__,
+                       default_settings=DEFAULT_SETTINGS)
 
     config.scan("readinglist.views")
     app = config.make_wsgi_app()
