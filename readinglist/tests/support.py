@@ -5,40 +5,22 @@ except ImportError:
 
 import webtest
 
-from cliquet.tests.support import FakeAuthentMixin
+from cliquet.tests.support import (BaseWebTest as CliquetBaseTest,
+                                   get_request_class)
 from readinglist import API_VERSION
 
 
-def get_request_class(prefix):
-
-    class PrefixedRequestClass(webtest.app.TestRequest):
-
-        @classmethod
-        def blank(cls, path, *args, **kwargs):
-            path = '/%s%s' % (prefix, path)
-            return webtest.app.TestRequest.blank(path, *args, **kwargs)
-
-    return PrefixedRequestClass
-
-
-class BaseWebTest(FakeAuthentMixin):
+class BaseWebTest(CliquetBaseTest):
     """Base Web Test to test your cornice service.
 
     It setups the database before each test and delete it after.
     """
-
-    app = webtest.TestApp("config:config/readinglist.ini",
-                          relative_to='.')
-
     def __init__(self, *args, **kwargs):
         super(BaseWebTest, self).__init__(*args, **kwargs)
-        self.app.RequestClass = get_request_class(prefix=API_VERSION)
-        self.db = self.app.app.registry.storage
-        self.db.initialize_schema()
-        self.headers.update({
-            'Content-Type': 'application/json',
-        })
+        self.storage.initialize_schema()
 
-    def tearDown(self):
-        super(BaseWebTest, self).tearDown()
-        self.db.flush()
+    def _get_test_app(self, settings=None):
+        app = webtest.TestApp("config:config/readinglist.ini",
+                              relative_to='.')
+        app.RequestClass = get_request_class(API_VERSION)
+        return app

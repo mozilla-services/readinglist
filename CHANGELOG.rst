@@ -6,7 +6,15 @@ This document describes changes between each past release.
 1.7.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+Upgraded to Cliquet 2.3+.
+
+**Breaking changes**
+
+- Now requires PostgreSQL 9.4+
+- Endpoints now expect articles to be posted in a ``data`` attribute
+- Endpoints responses now contain a ``data`` attribute
+- Endpoints switched from ``If-Modified-Since`` and ``If-Unmodified-Since``
+  to Etags
 
 
 1.7.0 (2015-04-15)
