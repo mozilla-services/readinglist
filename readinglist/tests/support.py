@@ -15,6 +15,9 @@ class BaseWebTest(CliquetBaseTest):
 
     It setups the database before each test and delete it after.
     """
+    def __init__(self, *args, **kwargs):
+        super(BaseWebTest, self).__init__(*args, **kwargs)
+        self.storage.initialize_schema()
 
     def _get_test_app(self, settings=None):
         app = webtest.TestApp("config:config/readinglist.ini",

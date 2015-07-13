@@ -10,6 +10,7 @@ Upgraded to Cliquet 2.3+.
 
 **Breaking changes**
 
+- Now requires PostgreSQL 9.4+
 - Endpoints now expect articles to be posted in a ``data`` attribute
 - Endpoints responses now contain a ``data`` attribute
 - Endpoints switched from ``If-Modified-Since`` and ``If-Unmodified-Since``
