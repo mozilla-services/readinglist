@@ -3,7 +3,7 @@ Changelog
 
 This document describes changes between each past release.
 
-1.7.1 (unreleased)
+2.0.0 (2015-07-22)
 ------------------
 
 Upgraded to Cliquet 2.3+.

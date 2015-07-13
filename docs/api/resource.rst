@@ -153,12 +153,12 @@ Example
 
 ::
 
-    http POST http://localhost:8000/v1/articles?_sort=-last_modified -v --auth "admin:"
+    http POST http://localhost:8000/v2/articles?_sort=-last_modified -v --auth "admin:"
 
 
 .. code-block:: http
 
-    GET /v1/articles?_sort=-last_modified HTTP/1.1
+    GET /v2/articles?_sort=-last_modified HTTP/1.1
     Accept: */*
     Accept-Encoding: gzip, deflate
     Authorization: Basic YWRtaW46
@@ -274,7 +274,7 @@ Example
 
 ::
 
-    http POST http://localhost:8000/v1/articles \
+    http POST http://localhost:8000/v2/articles \
         title="The Hawk Authorization protocol" \
         url=https://blog.mozilla.org/services/2015/02/05/whats-hawk-and-how-to-use-it/ \
         added_by=Natim \
@@ -282,7 +282,7 @@ Example
 
 .. code-block:: http
 
-    POST /v1/articles HTTP/1.1
+    POST /v2/articles HTTP/1.1
     Accept: application/json
     Accept-Encoding: gzip, deflate
     Authorization: Basic YWRtaW46
@@ -347,12 +347,12 @@ Example
 
 ::
 
-    http DELETE http://localhost:8000/v1/articles \
+    http DELETE http://localhost:8000/v2/articles \
         --auth "admin:" -v
 
 .. code-block:: http
 
-    DELETE /v1/articles HTTP/1.1
+    DELETE /v2/articles HTTP/1.1
     Accept: */*
     Accept-Encoding: gzip, deflate
     Authorization: Basic YWRtaW46
@@ -397,13 +397,13 @@ Example
 
 ::
 
-    http GET http://localhost:8000/v1/articles/30afb809ca7745a58496a09c6a4afcac \
+    http GET http://localhost:8000/v2/articles/30afb809ca7745a58496a09c6a4afcac \
         --auth "admin:" -v
 
 
 .. code-block:: http
 
-    GET /v1/articles/30afb809ca7745a58496a09c6a4afcac HTTP/1.1
+    GET /v2/articles/30afb809ca7745a58496a09c6a4afcac HTTP/1.1
     Accept: */*
     Accept-Encoding: gzip, deflate
     Authorization: Basic YWRtaW46
@@ -466,12 +466,12 @@ Example
 
 ::
 
-    http DELETE http://localhost:8000/v1/articles/ff795c43c02145a4b7a5df5260ee182d \
+    http DELETE http://localhost:8000/v2/articles/ff795c43c02145a4b7a5df5260ee182d \
         --auth "admin:" -v
 
 .. code-block:: http
 
-    DELETE /v1/articles/ff795c43c02145a4b7a5df5260ee182d HTTP/1.1
+    DELETE /v2/articles/ff795c43c02145a4b7a5df5260ee182d HTTP/1.1
     Accept: */*
     Accept-Encoding: gzip, deflate
     Authorization: Basic YWRtaW46
@@ -535,14 +535,14 @@ For example, using the default behavior :
 
 ::
 
-    http PATCH http://localhost:8000/v1/articles/8412b7d7da40467e9afbad8b6f15c20f \
+    http PATCH http://localhost:8000/v2/articles/8412b7d7da40467e9afbad8b6f15c20f \
         unread=False marked_read_on=1425316211577 marked_read_by=Ipad \
         --auth 'Natim:' -v
 
 .. code-block:: http
     :emphasize-lines: 15-35
 
-    PATCH /v1/articles/8412b7d7da40467e9afbad8b6f15c20f HTTP/1.1
+    PATCH /v2/articles/8412b7d7da40467e9afbad8b6f15c20f HTTP/1.1
     Host: localhost:8000
     [...]
 
@@ -583,7 +583,7 @@ Using ``Response-Behavior: light``
 
 ::
 
-    http PATCH http://localhost:8000/v1/articles/8412b7d7da40467e9afbad8b6f15c20f \
+    http PATCH http://localhost:8000/v2/articles/8412b7d7da40467e9afbad8b6f15c20f \
         unread=False marked_read_on=1425316211577 marked_read_by=Ipad \
         Response-Behavior:light \
         --auth 'Natim:' -v
@@ -591,7 +591,7 @@ Using ``Response-Behavior: light``
 .. code-block:: http
     :emphasize-lines: 3,16-20
 
-    PATCH /v1/articles/8412b7d7da40467e9afbad8b6f15c20f HTTP/1.1
+    PATCH /v2/articles/8412b7d7da40467e9afbad8b6f15c20f HTTP/1.1
     Host: localhost:8000
     Response-Behavior: light
     [...]
@@ -617,7 +617,7 @@ Using ``Response-Behavior: diff``
 
 ::
 
-    http PATCH http://localhost:8000/v1/articles/8412b7d7da40467e9afbad8b6f15c20f \
+    http PATCH http://localhost:8000/v2/articles/8412b7d7da40467e9afbad8b6f15c20f \
         unread=False marked_read_on=1425316211577 marked_read_by=Ipad \
         Response-Behavior:diff \
         --auth 'Natim:' -v
@@ -625,7 +625,7 @@ Using ``Response-Behavior: diff``
 .. code-block:: http
     :emphasize-lines: 3,16
 
-    PATCH /v1/articles/8412b7d7da40467e9afbad8b6f15c20f HTTP/1.1
+    PATCH /v2/articles/8412b7d7da40467e9afbad8b6f15c20f HTTP/1.1
     Host: localhost:8000
     Response-Behavior: diff
     [...]
@@ -693,14 +693,14 @@ Example
 
 ::
 
-    http PATCH http://localhost:8000/v1/articles/30afb809ca7745a58496a09c6a4afcac \
+    http PATCH http://localhost:8000/v2/articles/30afb809ca7745a58496a09c6a4afcac \
         title="What’s Hawk authentication and how to use it?" \
         If-Unmodified-Since:1425054146681 \
         --auth "admin:" -v
 
 .. code-block:: http
 
-    PATCH /v1/articles/30afb809ca7745a58496a09c6a4afcac HTTP/1.1
+    PATCH /v2/articles/30afb809ca7745a58496a09c6a4afcac HTTP/1.1
     Accept: application/json
     Accept-Encoding: gzip, deflate
     Authorization: Basic YWRtaW46
