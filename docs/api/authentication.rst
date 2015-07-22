@@ -19,7 +19,7 @@ Obtain the token
 Using the Web UI
 ::::::::::::::::
 
-* Navigate the client to ``GET /v1/fxa-oauth/login?redirect=http://app-endpoint/#``. There, a session
+* Navigate the client to ``GET /v2/fxa-oauth/login?redirect=http://app-endpoint/#``. There, a session
   cookie will be set, and the client will be redirected to a login
   form on the FxA content server
 * After submitting the credentials on the login page, the client will
@@ -29,16 +29,16 @@ Using the Web UI
 Custom flow
 :::::::::::
 
-The ``GET /v1/fxa-oauth/params`` endpoint can be use to get the
+The ``GET /v2/fxa-oauth/params`` endpoint can be use to get the
 configuration in order to trade the Firefox Account BrowserID with a
 Bearer Token. `See Firefox Account documentation about this behavior
 <https://developer.mozilla.org/en-US/Firefox_Accounts#Firefox_Accounts_BrowserID_API>`_
 
 .. code-block:: http
 
-    $ http GET http://localhost:8000/v1/fxa-oauth/params -v
+    $ http GET http://localhost:8000/v2/fxa-oauth/params -v
 
-    GET /v1/fxa-oauth/params HTTP/1.1
+    GET /v2/fxa-oauth/params HTTP/1.1
     Accept: */*
     Accept-Encoding: gzip, deflate
     Host: localhost:8000

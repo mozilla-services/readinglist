@@ -11,8 +11,8 @@ with open(os.path.join(here, 'CHANGELOG.rst')) as f:
 
 
 REQUIREMENTS = [
-    'waitress>=0.8.9',
-    'cliquet[postgresql,monitoring]>=2.3',
+    'waitress==0.8.9',
+    'cliquet[postgresql,monitoring]>=2.3,<2.4',
 ]
 
 ENTRY_POINTS = {
@@ -21,7 +21,7 @@ ENTRY_POINTS = {
     ]}
 
 setup(name='readinglist',
-      version='1.7.1.dev0',
+      version='2.0.0',
       description='readinglist',
       long_description=README + "\n\n" + CHANGELOG,
       license='Apache License (2.0)',

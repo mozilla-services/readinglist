@@ -85,7 +85,7 @@ class TestBasic(TestCase):
         return Config(config_file).get_map('loads')
 
     def api_url(self, path):
-        return "{0}/v1/{1}".format(self.server_url, path)
+        return "{0}/v2/{1}".format(self.server_url, path)
 
     def setUp(self):
         """Choose some random records in the whole collection.
