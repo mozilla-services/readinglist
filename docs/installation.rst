@@ -5,7 +5,7 @@ Installation
 Run locally
 ===========
 
-*Reading List* is based on top of the `cliquet <https://cliquet.rtfd.org>`_ project, and
+*Reading List* is based on top of the `cliquet <https://cliquet.readthedocs.io>`_ project, and
 as such, please refer to cliquet's documentation for more details.
 
 
@@ -41,7 +41,7 @@ Authentication
 By default, *Reading List* relies on Firefox Account OAuth2 Bearer tokens to authenticate
 users.
 
-See `cliquet documentation <http://cliquet.readthedocs.org/en/latest/configuration.html#authentication>`_
+See `cliquet documentation <https://cliquet.readthedocs.io/en/latest/configuration.html#authentication>`_
 to configure authentication options.
 
 

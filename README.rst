@@ -7,7 +7,7 @@ Reading List
     :target: https://travis-ci.org/mozilla-services/readinglist
 
 .. |readthedocs| image:: https://readthedocs.org/projects/readinglist/badge/?version=latest
-    :target: http://readinglist.readthedocs.org/en/latest/
+    :target: https://readinglist.readthedocs.io/en/latest/
     :alt: Documentation Status
 
 .. |master-coverage| image::
@@ -18,6 +18,6 @@ Reading List
 *Reading List* is a service that aims to synchronize a list of articles URLs
 between a set of devices owned by a same account.
 
-* `Online documentation <http://readinglist.readthedocs.org/en/latest/>`_
+* `Online documentation <https://readinglist.readthedocs.io/en/latest/>`_
 * `Issue tracker <https://github.com/mozilla-services/readinglist/issues>`_
-* `Contributing <http://readinglist.readthedocs.org/en/latest/contributing.html>`_
+* `Contributing <https://readinglist.readthedocs.io/en/latest/contributing.html>`_

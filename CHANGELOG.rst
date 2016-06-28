@@ -188,7 +188,7 @@ changes on schema have to be applied manually:
   (*Default: 50*) (mozilla-services/cliquet#112)
 - Add `StatsD <https://github.com/etsy/statsd/>`_ support,
   enabled with ``cliquet.statsd_url = udp://server:port`` (mozilla-services/cliquet#114)
-- Add `Sentry <http://sentry.readthedocs.org>`_ support,
+- Add `Sentry <https://sentry.readthedocs.io>`_ support,
   enabled with ``cliquet.sentry_url = http://user:pass@server/1`` (mozilla-services/cliquet#110)
 
 **Bug fixes**
@@ -310,7 +310,7 @@ changes on schema have to be applied manually:
 - Conditional changes for some articles attributes (ref #6)
 - Batching support (ref #2)
 - Pagination support (ref #25)
-- Online documentation available at http://readinglist.readthedocs.org (ref PR #73)
+- Online documentation available at https://readinglist.readthedocs.io (ref PR #73)
 - Basic Auth nows support any user/password combination (ref PR #78)
 
 **Bug fixes**
