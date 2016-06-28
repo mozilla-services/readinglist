@@ -12,7 +12,7 @@ with open(os.path.join(here, 'CHANGELOG.rst')) as f:
 
 REQUIREMENTS = [
     'waitress>=0.8.9',
-    'cliquet[postgresql,monitoring]>=2.3',
+    'cliquet[postgresql,monitoring]>=2.3,<2.4',
 ]
 
 ENTRY_POINTS = {
