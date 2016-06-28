@@ -11,4 +11,4 @@ class HelloViewTest(BaseWebTest, unittest.TestCase):
         self.assertEqual(response.json['url'], 'http://localhost/v2/')
         self.assertEqual(response.json['hello'], 'readinglist')
         self.assertEqual(response.json['documentation'],
-                         'https://readinglist.readthedocs.org/')
+                         'https://readinglist.readthedocs.io/')
